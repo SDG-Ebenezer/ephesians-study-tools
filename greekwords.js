@@ -22,28 +22,124 @@ const expected = {
     hyperbole: "hyperbole", megethos: "megethos", dynamis: "dynamis", 
     energeia: "energeia", ischys: "ischys", kratos: "kratos", energeo: "energeo", nekros: "nekros", dexios: "dexios",
     arche: "arche", exousia: "exousia", kyriotes: "kyriotes",
-    onoma: "onoma", aion: "aion", pous: "pous", kephale: "kephale", ekklesia: "ekklesia", soma: "soma", pleroo: "pleroo"
+    onoma: "onoma", aion: "aion", pous: "pous", kephale: "kephale", ekklesia: "ekklesia", soma: "soma", pleroo: "pleroo",
+    nekros: "nekros",
+    paraptoma: "paraptoma",
+    hamartia: "hamartia",
+    peripateo: "peripateo",
+    kosmos: "kosmos",
+    archon: "archon",
+    exousia: "exousia",
+    aer: "aer",
+    pneuma: "pneuma",
+    huios: "huios",
+    apeitheia: "apeitheia",
+    anatrepho: "anatrepho",
+    epithymia: "epithymia",
+    sarx: "sarx",
+    thelema: "thelema",
+    dianoia: "dianoia",
+    physis: "physis",
+    teknon: "teknon",
+    orge: "orge",
+    theos: "theos",
+    plousios: "plousios",
+    eleos: "eleos",
+    polys: "polys",
+    agape: "agape",
+    agapao: "agapao",
+    syzoopoieo: "syzoopoieo",
+    christos: "christos",
+    charis: "charis",
+    sozo: "sozo",
+    synegeiro: "synegeiro",
+    sygkathizo: "sygkathizo",
+    epouranios: "epouranios",
+    iesous: "iesous",
+    hyperballo: "hyperballo",
+    ploutos: "ploutos",
+    chrestotes: "chrestotes",
+    pistis: "pistis",
+    doron: "doron",
+    ergon: "ergon",
+    kauchaomai: "kauchaomai",
+    poiema: "poiema",
+    ktizo: "ktizo",
+    agathos: "agathos",
+    proetoimazo: "proetoimazo",
+    ethnos: "ethnos",
+    akrobystia: "akrobystia",
+    peritome: "peritome",
+    cheiropoietos: "cheiropoietos",
+    apallotrioo: "apallotrioo",
+    politeia: "politeia",
+    israel: "israel",
+    xenos: "xenos",
+    diatheke: "diatheke",
+    epangelia: "epangelia",
+    elpis: "elpis",
+    atheos: "atheos",
+    makran: "makran",
+    haima: "haima",
+    eirene: "eirene",
+    heis: "heis",
+    phragmos: "phragmos",
+    mesotoichon: "mesotoichon",
+    katargeo: "katargeo",
+    nomos: "nomos",
+    dogma: "dogma",
+    kainos: "kainos",
+    anthropos: "anthropos",
+    dyo: "dyo",
+    apokatallasso: "apokatallasso",
+    soma: "soma",
+    stauros: "stauros",
+    apokteino: "apokteino",
+    echthra: "echthra",
+    euangelizo: "euangelizo",
+    prosagoge: "prosagoge",
+    pater: "pater",
+    paroikos: "paroikos",
+    sympolites: "sympolites",
+    hagios: "hagios",
+    oikeios: "oikeios",
+    apostolos: "apostolos",
+    prophetes: "prophetes",
+    akrogoniaios: "akrogoniaios",
+    oikodome: "oikodome",
+    auxano: "auxano",
+    naos: "naos",
+    kyrios: "kyrios",
+    katoiketerion: "katoiketerion",
 };
 
 // state trackers
-const attempts = {};      // attempts[data-key] = number
-const revealedFlags = {}; // revealed[data-key] = true/false
-const askedReveal = {};   // whether we've already asked (to avoid repeated confirms)
+// We track state per input instance (unique id) so duplicate words (same data-key)
+// are treated independently.
+const attempts = {};      // attempts[instanceId] = number
+const revealedFlags = {}; // revealed[instanceId] = true/false
+const askedReveal = {};   // whether we've already asked per-instance
+function getRandomId(prefix='id'){ return prefix + '_' + Math.random().toString(36).slice(2) + '_' + Math.random().toString(36).slice(2,8); }
 
 // helpers
 function normalize(s){ return (s||"").trim().toLowerCase().replace(/\u00A0/g," "); }
 
 // initialize attempts
-document.querySelectorAll('input.greek').forEach(i => {
-    const k = i.dataset.key;
-    attempts[k] = 0;
-    revealedFlags[k] = false;
-    askedReveal[k] = false;
+// Assign a stable, unique instance id to each input so duplicates of the same
+// data-key can be distinguished. We store it in `data-instance` attribute.
+document.querySelectorAll('input.greek').forEach((i, idx) => {
+    // If `data-instance` already exists (e.g., from server-side) keep it.
+    const inst = i.dataset.instance || getRandomId('inst');
+    i.dataset.instance = inst;
+    attempts[inst] = 0;
+    revealedFlags[inst] = false;
+    askedReveal[inst] = false;
 });
 
 function gradeSingleInput(inp) {
     const key = inp.dataset.key;
-    if (revealedFlags[key]) {
+    const inst = inp.dataset.instance;
+    if (revealedFlags[inst]) {
     // already revealed: keep revealed state
     inp.classList.remove("incorrect","correct");
     inp.classList.add("revealed");
@@ -56,29 +152,32 @@ function gradeSingleInput(inp) {
     }
     const exp = normalize(expected[key] || "");
     if (user === exp) {
-    attempts[key] = 0; // reset attempts on success
+    attempts[inst] = 0; // reset attempts on success for this instance
     inp.classList.remove("incorrect","revealed");
     inp.classList.add("correct");
     inp.removeAttribute('aria-invalid');
     return "correct";
     } else {
     // incorrect
-    attempts[key] = (attempts[key] || 0) + 1;
+    attempts[inst] = (attempts[inst] || 0) + 1;
     inp.classList.remove("correct","revealed");
     inp.classList.add("incorrect");
     inp.setAttribute('aria-invalid','true');
 
-    // if reached threshold and not yet revealed, ask.
-    if (attempts[key] >= 3 && !revealedFlags[key] && !askedReveal[key]) {
-        askedReveal[key] = true;
+    // if reached threshold and not yet revealed, ask per-instance.
+    if (attempts[inst] >= 3 && !revealedFlags[inst] && !askedReveal[inst]) {
+        askedReveal[inst] = true;
         // small asynchronous prompt so UI updates (e.g., red border) before confirm
         setTimeout(()=> {
-        const want = confirm(`You've tried "${inp.placeholder}" (${attempts[key]} wrong attempts). Reveal the answer for this word?`);
+        const want = confirm(`You've tried "${inp.placeholder}" (${attempts[inst]} wrong attempts). Reveal the answer for this word?`);
         if (want) {
             revealSingle(inp, true);
         } else {
             // If they decline, keep input as incorrect and allow further tries.
             // attempts continue to accumulate.
+            attempts[inst] = 0;
+            revealedFlags[inst] = false;
+            askedReveal[inst] = false;
         }
         }, 50);
     }
@@ -99,9 +198,10 @@ function checkAnswers() {
 
 function revealSingle(inp, setReadonly = true) {
     const key = inp.dataset.key;
+    const inst = inp.dataset.instance;
     const val = expected[key] || "";
     inp.value = val;
-    revealedFlags[key] = true;
+    revealedFlags[inst] = true;
     inp.classList.remove("correct","incorrect");
     inp.classList.add("revealed");
     if (setReadonly) {
@@ -142,20 +242,21 @@ function showSummary() {
     const practice = []; // words to work on: incorrect/unrevealed OR revealed
     inputs.forEach(inp => {
     const key = inp.dataset.key;
+    const inst = inp.dataset.instance;
     const state = inp.classList.contains('revealed') ? 'revealed'
                 : inp.classList.contains('correct') ? 'correct'
                 : inp.classList.contains('incorrect') ? 'incorrect' : 'empty';
     const user = normalize(inp.value);
     if (state === 'correct') correct++;
-    else if (state === 'revealed') { revealed++; practice.push(key); }
-    else if (state === 'incorrect') { incorrect++; practice.push(key); }
+    else if (state === 'revealed') { revealed++; practice.push({ key, inst }); }
+    else if (state === 'incorrect') { incorrect++; practice.push({ key, inst }); }
     else empty++;
     });
 
     // prepare readable list (use expected transliteration)
     // prioritize incorrect over revealed, sort by attempts desc to suggest those you struggled with
-    practice.sort((a,b) => (attempts[b]||0) - (attempts[a]||0));
-    const practiceList = practice.slice(0,12).map(k => `${k} — (${expected[k] || ''})`);
+    practice.sort((a,b) => (attempts[b.inst]||0) - (attempts[a.inst]||0));
+    const practiceList = practice.slice(0,12).map(item => `${item.key} — (${expected[item.key] || ''})`);
 
     const summaryEl = document.getElementById('summaryBox');
     summaryEl.style.display = 'block';

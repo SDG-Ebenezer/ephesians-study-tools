@@ -16,7 +16,7 @@ const expected = {
     akouo: "akouo", logos: "logos", alethia: "alethia",
     euangelion: "euangelion", soteria: "soteria", sphragizo: "sphragizo",
     epangelia: "epangelia", pneuma: "pneuma", arrabon: "arrabon",
-    kleronomia: "kleronomia", apolyrosis: "apolyrosis", peripoiesis: "peripoiesis", eucharisteo: "eucharisteo", poieomneia: "poieomneia",
+    kleronomia: "kleronomia", peripoiesis: "peripoiesis", eucharisteo: "eucharisteo", poieomneia: "poieomneia",
     proseuche: "proseuche", apokalypsis: "apokalypsis", epignosis: "epignosis", ophthalmos: "ophthalmos",
     dianoia: "dianoia", photizo: "photizo", elpis: "elpis", klesis: "klesis",    
     hyperbole: "hyperbole", megethos: "megethos", dynamis: "dynamis", 
@@ -124,17 +124,85 @@ function getRandomId(prefix='id'){ return prefix + '_' + Math.random().toString(
 // helpers
 function normalize(s){ return (s||"").trim().toLowerCase().replace(/\u00A0/g," "); }
 
-// initialize attempts
-// Assign a stable, unique instance id to each input so duplicates of the same
-// data-key can be distinguished. We store it in `data-instance` attribute.
-document.querySelectorAll('input.greek').forEach((i, idx) => {
-    // If `data-instance` already exists (e.g., from server-side) keep it.
-    const inst = i.dataset.instance || getRandomId('inst');
-    i.dataset.instance = inst;
-    attempts[inst] = 0;
-    revealedFlags[inst] = false;
-    askedReveal[inst] = false;
-});
+// We'll initialize DOM-dependent state and listeners in `init()` so we don't
+// rely on the script being executed after the full DOM is parsed.
+function init() {
+    // Assign a stable, unique instance id to each input so duplicates of the same
+    // data-key can be distinguished. We store it in `data-instance` attribute.
+    document.querySelectorAll('input.greek').forEach((i, idx) => {
+        // If `data-instance` already exists (e.g., from server-side) keep it.
+        const inst = i.dataset.instance || getRandomId('inst');
+        i.dataset.instance = inst;
+        attempts[inst] = 0;
+        revealedFlags[inst] = false;
+        askedReveal[inst] = false;
+    });
+
+    const controls = document.querySelector('.controls') || document.body;
+
+    const btnReveal = document.getElementById('reveal');
+    if (btnReveal) btnReveal.addEventListener('click', ()=> {
+        const ok = confirm("Reveal all answers? (This will fill every field and mark them revealed)");
+        if (ok) {
+            revealAll();
+            showSummary();
+        }
+    });
+
+    const btnReset = document.getElementById('reset');
+    if (btnReset) btnReset.addEventListener('click', ()=> {
+        const ok = confirm("Reset all inputs and progress?");
+        if (ok) resetAll();
+    });
+
+    const btnSummary = document.getElementById('summary');
+    if (btnSummary) btnSummary.addEventListener('click', showSummary);
+
+    // per-input: grade on blur and also detect Enter to run check. Attach to #passage if present
+    const passage = document.getElementById('passage');
+    if (passage) {
+        passage.addEventListener('input', function(e){
+            const tgt = e.target;
+            if (tgt && tgt.matches && tgt.matches('input.greek')) {
+                // remove classes when user types (so they can retry visibly)
+                if (!tgt.classList.contains('revealed')) {
+                    tgt.classList.remove('correct','incorrect');
+                }
+            }
+        });
+
+        passage.addEventListener('blur', function(e){
+            const tgt = e.target;
+            if (tgt && tgt.matches && tgt.matches('input.greek')) {
+                gradeSingleInput(tgt);
+                // update the live score (counts only confirmed correct)
+                const inputs = Array.from(document.querySelectorAll('input.greek'));
+                let correctCount = 0;
+                inputs.forEach(i => { if (i.classList.contains('correct')) correctCount++; });
+                const total = inputs.length;
+                const scoreEl = document.getElementById('score');
+                if (scoreEl) scoreEl.textContent = `Score: ${correctCount} / ${total}`;
+            }
+        }, true);
+
+        // allow Enter in an input to run check
+        passage.addEventListener('keydown', function(e){
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                checkAnswers();
+            }
+        });
+    } else {
+        console.warn('#passage element not found when initializing event handlers');
+    }
+
+    // accessibility: focus first input
+    const first = document.querySelector('input.greek');
+    if (first) first.focus();
+
+    // enable autosize behavior
+    enableAutosize();
+}
 
 function gradeSingleInput(inp) {
     const key = inp.dataset.key;
@@ -186,14 +254,21 @@ function gradeSingleInput(inp) {
 }
 
 function checkAnswers() {
-    const inputs = Array.from(document.querySelectorAll('input.greek'));
-    let correctCount = 0;
-    inputs.forEach(inp => {
-        const r = gradeSingleInput(inp);
-        if (r === "correct") correctCount++;
-    });
-    const totalCount = inputs.length;
-    document.getElementById('score').textContent = `Score: ${correctCount} / ${totalCount}`;
+    try {
+        console.log('checkAnswers called');
+        const inputs = Array.from(document.querySelectorAll('input.greek'));
+        let correctCount = 0;
+        inputs.forEach(inp => {
+            const r = gradeSingleInput(inp);
+            if (r === "correct") correctCount++;
+        });
+        const totalCount = inputs.length;
+        const scoreEl = document.getElementById('score');
+        if (scoreEl) scoreEl.textContent = `Score: ${correctCount} / ${totalCount}`;
+        else console.warn('checkAnswers: #score element not found');
+    } catch (err) {
+        console.error('Error in checkAnswers:', err);
+    }
 }
 
 function revealSingle(inp, setReadonly = true) {
@@ -202,8 +277,8 @@ function revealSingle(inp, setReadonly = true) {
     const val = expected[key] || "";
     inp.value = val;
     revealedFlags[inst] = true;
-    inp.classList.remove("correct","incorrect");
     inp.classList.add("revealed");
+    inp.classList.remove("correct","incorrect");
     if (setReadonly) {
     inp.setAttribute('readonly','readonly');
     }
@@ -213,7 +288,11 @@ function revealSingle(inp, setReadonly = true) {
 
 function revealAll() {
     const inputs = Array.from(document.querySelectorAll('input.greek'));
-    inputs.forEach(inp => revealSingle(inp, true));
+    inputs.forEach(inp => {
+        if(!inp.classList.contains('correct') && !inp.classList.contains('incorrect')){
+            revealSingle(inp, true)
+        }
+    });
     // mark askedReveal so we don't prompt again
     Object.keys(askedReveal).forEach(k => askedReveal[k] = true);
 }
@@ -256,14 +335,24 @@ function showSummary() {
     // prepare readable list (use expected transliteration)
     // prioritize incorrect over revealed, sort by attempts desc to suggest those you struggled with
     practice.sort((a,b) => (attempts[b.inst]||0) - (attempts[a.inst]||0));
-    const practiceList = practice.slice(0,12).map(item => `${item.key} — (${expected[item.key] || ''})`);
+    const practiceList = practice.map(item => {
+        const key = item.key;
+        // Try to collect English translations from placeholders of inputs with the same data-key
+        const selectorKey = (window.CSS && CSS.escape) ? CSS.escape(key) : key;
+        const inputsForKey = Array.from(document.querySelectorAll(`input.greek[data-key="${selectorKey}"]`));
+        const placeholders = inputsForKey.map(i => (i.placeholder || '').trim()).filter(Boolean);
+        // dedupe while preserving order
+        const uniq = Array.from(new Set(placeholders));
+        const label = uniq.length ? uniq.join(', ') : (expected[key] || '');
+        return `${key} — ${label}`;
+    });
 
     const summaryEl = document.getElementById('summaryBox');
     summaryEl.style.display = 'block';
     summaryEl.innerHTML = `
     <h3>Summary</h3>
     <div><strong>Total fields:</strong> ${total}</div>
-    <div><strong>Correct:</strong> ${correct} &nbsp; <strong>Revealed:</strong> ${revealed} &nbsp; <strong>Incorrect:</strong> ${incorrect} &nbsp; <strong>Empty:</strong> ${empty}</div>
+    <div><strong>Correct:</strong> ${correct} &nbsp; <strong>Revealed/Incorrect:</strong> ${revealed + incorrect} &nbsp; <strong>Empty:</strong> ${empty}</div>
     <p style="margin-top:8px">Suggestion: practice the words below. Start with those you've tried multiple times.</p>
     ${practiceList.length ? `<ul>${practiceList.map(s => `<li>${escapeHtml(s)}</li>`).join('')}</ul>` : '<div>No suggested words — great job! 🎉</div>'}
     <p style="margin-top:8px; color:var(--muted)">Tip: try flashcards for the top 8 words here, or type them 5× each to build recall.</p>
@@ -273,55 +362,13 @@ function showSummary() {
 // small utility to escape HTML in list items
 function escapeHtml(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-// events
-document.getElementById('check').addEventListener('click', checkAnswers);
-document.getElementById('reveal').addEventListener('click', ()=> {
-    const ok = confirm("Reveal all answers? (This will fill every field and mark them revealed)");
-    if (ok) revealAll();
-});
-document.getElementById('reset').addEventListener('click', ()=> {
-    const ok = confirm("Reset all inputs and progress?");
-    if (ok) resetAll();
-});
-document.getElementById('summary').addEventListener('click', showSummary);
-
-// per-input: grade on blur and also detect Enter to run check.
-document.getElementById('passage').addEventListener('input', function(e){
-    const tgt = e.target;
-    if (tgt && tgt.matches && tgt.matches('input.greek')) {
-    // remove classes when user types (so they can retry visibly)
-    if (!tgt.classList.contains('revealed')) {
-        tgt.classList.remove('correct','incorrect');
-    }
-    }
-});
-
-document.getElementById('passage').addEventListener('blur', function(e){
-    const tgt = e.target;
-    if (tgt && tgt.matches && tgt.matches('input.greek')) {
-    gradeSingleInput(tgt);
-    // update the live score (counts only confirmed correct)
-    const inputs = Array.from(document.querySelectorAll('input.greek'));
-    let correctCount = 0;
-    inputs.forEach(i => { if (i.classList.contains('correct')) correctCount++; });
-    document.getElementById('score').textContent = `Score: ${correctCount} / ${Array.from(document.querySelectorAll('input.greek')).length}`;
-    }
-}, true);
-
-// allow Enter in an input to run check
-document.getElementById('passage').addEventListener('keydown', function(e){
-    if (e.key === 'Enter') {
-    e.preventDefault();
-    checkAnswers();
-    }
-});
-
-// accessibility: focus first input
-window.addEventListener('load', ()=> {
-    const first = document.querySelector('input.greek');
-    if (first) first.focus();
-});
-
+// Initialize when DOM is ready (safe if script is injected in head or bottom)
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+} else {
+    // DOM already ready
+    init();
+}
 // Measure text width in pixels using canvas. Reuses a single canvas for speed.
 const textMeasurer = (() => {
     const cvs = document.createElement('canvas');

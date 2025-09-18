@@ -103,3 +103,16 @@ footer { margin-top: 20px; color: #475569; font-size: 0.9rem; }
 @media (max-width:520px){
   input.greek { min-width: 56px; font-size: 0.9rem; }
 }
+
+#placeholder_reader {
+  position: absolute;
+  display: none;
+  top: 0px;
+  left: 0px;
+  width: auto;
+  height: auto;
+  padding: 5px;
+  background-color: #ffffffbd;
+  color: rgb(0, 0, 0);
+  border: 1px solid #00000088;
+}

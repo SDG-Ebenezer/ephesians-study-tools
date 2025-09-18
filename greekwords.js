@@ -1,118 +1,3 @@
-// expected answers (lowercase transliterations)
-const expected = {
-    paulos: "paulos", apostolos: "apostolos", Christos: "Christos", Iesous: "iesous", thelema: "thelema", theos: "theos", hagios: "hagios", Ephesos: "ephesos",
-    pistos: "pistos", charis: "charis", eirene: "eirene", pater: "pater", kyrios: "kyrios",
-    Christos: "christos", eulogetos: "eulogetos", eulogeo: "eulogeo", pneumatikos: "pneumatikos", eulogia: "eulogia",
-    epouranios: "epouranios", eklegomai: "eklegomai", katabole: "katabole", kosmos: "kosmos",
-    amomos: "amomos", agape: "agape", proorizo: "proorizo",
-    huiothesia: "huiothesia", eudokia: "eudokia", epainos: "epainos", doxa: "doxa",
-    charitoo: "charitoo", apolytrosis: "apolytrosis", haima: "haima",
-    aphesis: "aphesis", paraptoma: "paraptoma", ploutos: "ploutos",
-    perisseuo: "perisseuo", sophia: "sophia", phronesis: "phronesis", mysterion: "mysterion",
-    pleroma: "pleroma", pisteuo: "pisteuo", pistis: "pistis",
-    kairos: "kairos", anakephalaioo: "anakephalaioo", ouranos: "ouranos",
-    ge: "ge", kleroo: "kleroo", prothesis: "prothesis",
-    boule: "boule", proelpizo: "proelpizo",
-    akouo: "akouo", logos: "logos", alethia: "alethia",
-    euangelion: "euangelion", soteria: "soteria", sphragizo: "sphragizo",
-    epangelia: "epangelia", pneuma: "pneuma", arrabon: "arrabon",
-    kleronomia: "kleronomia", peripoiesis: "peripoiesis", eucharisteo: "eucharisteo", poieomneia: "poieomneia",
-    proseuche: "proseuche", apokalypsis: "apokalypsis", epignosis: "epignosis", ophthalmos: "ophthalmos",
-    dianoia: "dianoia", photizo: "photizo", elpis: "elpis", klesis: "klesis",    
-    hyperbole: "hyperbole", megethos: "megethos", dynamis: "dynamis", 
-    energeia: "energeia", ischys: "ischys", kratos: "kratos", energeo: "energeo", nekros: "nekros", dexios: "dexios",
-    arche: "arche", exousia: "exousia", kyriotes: "kyriotes",
-    onoma: "onoma", aion: "aion", pous: "pous", kephale: "kephale", ekklesia: "ekklesia", soma: "soma", pleroo: "pleroo",
-    nekros: "nekros",
-    paraptoma: "paraptoma",
-    hamartia: "hamartia",
-    peripateo: "peripateo",
-    kosmos: "kosmos",
-    archon: "archon",
-    exousia: "exousia",
-    aer: "aer",
-    pneuma: "pneuma",
-    huios: "huios",
-    apeitheia: "apeitheia",
-    anatrepho: "anatrepho",
-    epithymia: "epithymia",
-    sarx: "sarx",
-    thelema: "thelema",
-    dianoia: "dianoia",
-    physis: "physis",
-    teknon: "teknon",
-    orge: "orge",
-    theos: "theos",
-    plousios: "plousios",
-    eleos: "eleos",
-    polys: "polys",
-    agape: "agape",
-    agapao: "agapao",
-    syzoopoieo: "syzoopoieo",
-    christos: "christos",
-    charis: "charis",
-    sozo: "sozo",
-    synegeiro: "synegeiro",
-    sygkathizo: "sygkathizo",
-    epouranios: "epouranios",
-    iesous: "iesous",
-    hyperballo: "hyperballo",
-    ploutos: "ploutos",
-    chrestotes: "chrestotes",
-    pistis: "pistis",
-    doron: "doron",
-    ergon: "ergon",
-    kauchaomai: "kauchaomai",
-    poiema: "poiema",
-    ktizo: "ktizo",
-    agathos: "agathos",
-    proetoimazo: "proetoimazo",
-    ethnos: "ethnos",
-    akrobystia: "akrobystia",
-    peritome: "peritome",
-    cheiropoietos: "cheiropoietos",
-    apallotrioo: "apallotrioo",
-    politeia: "politeia",
-    israel: "israel",
-    xenos: "xenos",
-    diatheke: "diatheke",
-    epangelia: "epangelia",
-    elpis: "elpis",
-    atheos: "atheos",
-    makran: "makran",
-    haima: "haima",
-    eirene: "eirene",
-    heis: "heis",
-    phragmos: "phragmos",
-    mesotoichon: "mesotoichon",
-    katargeo: "katargeo",
-    nomos: "nomos",
-    dogma: "dogma",
-    kainos: "kainos",
-    anthropos: "anthropos",
-    dyo: "dyo",
-    apokatallasso: "apokatallasso",
-    soma: "soma",
-    stauros: "stauros",
-    apokteino: "apokteino",
-    echthra: "echthra",
-    euangelizo: "euangelizo",
-    prosagoge: "prosagoge",
-    pater: "pater",
-    paroikos: "paroikos",
-    sympolites: "sympolites",
-    hagios: "hagios",
-    oikeios: "oikeios",
-    apostolos: "apostolos",
-    prophetes: "prophetes",
-    akrogoniaios: "akrogoniaios",
-    oikodome: "oikodome",
-    auxano: "auxano",
-    naos: "naos",
-    kyrios: "kyrios",
-    katoiketerion: "katoiketerion",
-};
-
 // state trackers
 // We track state per input instance (unique id) so duplicate words (same data-key)
 // are treated independently.
@@ -218,7 +103,7 @@ function gradeSingleInput(inp) {
     inp.classList.remove("correct","incorrect");
     return "empty";
     }
-    const exp = normalize(expected[key] || "");
+    const exp = normalize(key || "");
     if (user === exp) {
     attempts[inst] = 0; // reset attempts on success for this instance
     inp.classList.remove("incorrect","revealed");
@@ -274,7 +159,7 @@ function checkAnswers() {
 function revealSingle(inp, setReadonly = true) {
     const key = inp.dataset.key;
     const inst = inp.dataset.instance;
-    const val = expected[key] || "";
+    const val = key || "";
     inp.value = val;
     revealedFlags[inst] = true;
     inp.classList.add("revealed");
@@ -343,7 +228,7 @@ function showSummary() {
         const placeholders = inputsForKey.map(i => (i.placeholder || '').trim()).filter(Boolean);
         // dedupe while preserving order
         const uniq = Array.from(new Set(placeholders));
-        const label = uniq.length ? uniq.join(', ') : (expected[key] || '');
+        const label = uniq.length ? uniq.join(', ') : (key || '');
         return `${key} — ${label}`;
     });
 
@@ -438,6 +323,36 @@ function enableAutosize(selector = '.autosize', opts = {}){
     onInput();
     });
 }
+
+/** */
+const inputs = document.querySelectorAll(".greek");
+const placeholderReader = document.getElementById("placeholder_reader");
+
+function resetPlaceholderReader() {
+    placeholderReader.innerHTML = "";
+    placeholderReader.style.display = "none";
+    placeholderReader.style.left = "-9999px";
+    placeholderReader.style.top = "-9999px";
+}
+
+resetPlaceholderReader();
+
+inputs.forEach(input => {
+    input.addEventListener("mouseenter", (e) => {
+        const text = input.placeholder;
+        const mouseX = e.clientX;
+        const mouseY = e.clientY;
+        
+        placeholderReader.innerHTML = text;
+        placeholderReader.style.display = "block";
+        placeholderReader.style.left = mouseX + "px";
+        placeholderReader.style.top = mouseY + "px";
+    });
+
+    input.addEventListener("mouseleave", resetPlaceholderReader);
+});
+
+
 
 // enable on DOMContentLoaded
 window.addEventListener('DOMContentLoaded', () => enableAutosize());

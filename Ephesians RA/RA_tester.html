@@ -1,0 +1,742 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>RA Drill</title>
+<style>
+  :root{
+    --bg:#f4f6fb; --card:#ffffff; --muted:#6b7280; --accent:#2563eb; --good:#16a34a; --bad:#dc2626;
+    --radius:12px;
+  }
+  html,body{height:100%;margin:0;font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial; background:linear-gradient(180deg,#eef2ff 0%,var(--bg) 100%); color:#0f172a;}
+  .wrap{min-height:100%;display:flex;align-items:center;justify-content:center;padding:36px;}
+  .card{width:980px;max-width:96vw;background:var(--card);border-radius:var(--radius);box-shadow:0 10px 30px rgba(15,23,42,0.06);padding:20px;display:flex;gap:14px;flex-direction:column;}
+  header{display:flex;align-items:center;gap:12px;}
+  h1{font-size:18px;margin:0;}
+  .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+  .file-label{display:inline-flex;align-items:center;gap:8px;background:#f8fafc;padding:8px 10px;border-radius:10px;border:1px solid #eef2ff;}
+  .btn{background:var(--accent);color:white;border:none;padding:8px 12px;border-radius:10px;font-weight:600;cursor:pointer;}
+  .btn.secondary{background:transparent;color:var(--accent);border:1px solid rgba(37,99,235,0.12);}
+  .btn.ghost{background:transparent;border:1px solid #e6eefc;color:var(--muted);}
+  .small{color:var(--muted);font-size:13px}
+  main{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start;}
+  .left{flex:1;min-width:320px;}
+  .verse-card{background:linear-gradient(180deg,#ffffff,#fbfdff);padding:18px;border-radius:10px;border:1px solid #eef2ff;min-height:140px;display:flex;flex-direction:column;gap:10px;}
+  .ref-row{display:flex;align-items:center;gap:10px;}
+  .ref{font-weight:700;color:#0b1220}
+  .meta{color:var(--muted);font-size:13px}
+  .line{display:flex;flex-wrap:wrap;gap:8px;align-items:center;min-height:56px;}
+  /* THINNER inputs: reduced padding, font-size, and min-height */
+  .word-input{font-size:15px;padding:3px 4px;border-radius:4px;border:1px solid #e6eefc;min-width:30px;min-height:34px;text-align:center;box-shadow:none;transition:border-color .12s,box-shadow .12s,transform .08s;}
+  .word-input:focus{outline:none;border-color:rgba(37,99,235,0.25);box-shadow:0 8px 20px rgba(37,99,235,0.06)}
+  .word-input.correct{background:rgba(16,185,129,0.06);border-color:rgba(16,185,129,0.14);color:var(--good)}
+  .word-input.wrong{background:rgba(239,68,68,0.06);border-color:rgba(220,38,38,0.12);color:var(--bad)}
+  .word-pill{display:inline-flex;align-items:center;gap:2px}
+  .nav{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .stats{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+  .progress-wrap{width:220px}
+  .progress-bar{width:100%;height:10px;background:#f3f4f6;border-radius:999px;overflow:hidden;border:1px solid #eef2ff}
+  .progress-fill{height:100%;background:linear-gradient(90deg,var(--accent),#7c3aed);width:0%}
+  .remaining-bar{height:10px;background:#f3f4f6;border-radius:999px;overflow:hidden;border:1px solid #eef2ff}
+  .remaining-fill{height:100%;background:linear-gradient(90deg,#06b6d4,#3b82f6);width:0%}
+  .footer{display:flex;justify-content:space-between;align-items:center;margin-top:6px}
+  .kbd{background:#f8fafc;padding:6px;border-radius:8px;border:1px solid #eef2ff;font-weight:600;color:var(--muted)}
+  .flash-wrong { animation: flash 370ms ease; }
+  @keyframes flash { 0% { transform: translateY(0); } 30% { transform: translateY(-3px); } 60% { transform: translateY(0); } 100% { transform: translateY(0); } }
+  .aside{width:290px;min-width:240px;display:flex;flex-direction:column;gap:12px}
+  .aside .card{padding:12px}
+  .completed-list{max-height:300px;overflow:auto;padding:8px;border-radius:8px;border:1px dashed #eef2ff;background:#fbfdff}
+  .completed-item{padding:6px 8px;border-radius:6px;background:#fff;border:1px solid #eef2ff;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center}
+  .banner{background:linear-gradient(90deg,#d1fae5,#bbf7d0);border:1px solid #bbf7d0;padding:10px;border-radius:8px;color:#064e3b;font-weight:700}
+  @media (max-width:880px){ .card{padding:12px} .aside{width:100%;min-width:unset} main{flex-direction:column} }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card" role="application" aria-label="RA Drill">
+      <header>
+        <h1>RA Drill</h1>
+      </header>
+
+      <div class="controls">
+        <label class="file-label">
+          <input id="csvfile" type="file" accept=".csv" />
+          <span class="small">Upload references.csv</span>
+        </label>
+        <button id="tryFetch" class="btn secondary">Load ./references.csv</button>
+        <button id="shuffle" class="btn ghost">Shuffle</button>
+        <button id="resetSession" class="btn ghost">Reset Scores</button>
+
+        <div style="margin-left:auto;display:flex;gap:12px;align-items:center">
+          <label class="small"><input type="checkbox" id="randomNext"> Random Next</label>
+          <div style="width:150px;" class="progress-wrap small">
+            <div class="small">Unseen</div>
+            <div class="remaining-bar" aria-hidden="true"><div id="remainingFill" class="remaining-fill"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <main>
+        <section class="left">
+          <div class="verse-card" id="mainCard" aria-live="polite">
+            <div class="ref-row">
+              <div class="ref" id="reference">No file loaded</div>
+              <div class="meta" id="fileName">—</div>
+              <div style="margin-left:auto" class="meta">Verse: <span id="indexDisplay">0 / 0</span></div>
+            </div>
+
+            <div class="line" id="verseLine" aria-label="Verse area — words only"></div>
+
+            <div class="nav">
+              <div class="row">
+                <button id="prevBtn" class="btn ghost">◀ Prev</button>
+                <button id="nextBtn" class="btn">Next ▶</button>
+                <button id="promptWord" class="btn secondary">Prompt word</button>
+                <button id="promptVerse" class="btn secondary">Prompt verse</button>
+                <button id="checkAll" class="btn ghost">Check visible</button>
+              </div>
+              <div style="margin-left:auto" class="right stats">
+                <div class="small">Verse <strong id="versePercent">—</strong></div>
+                <div style="width:200px" class="progress-wrap small">
+                  <div class="small">Verse progress</div>
+                  <div class="progress-bar" aria-hidden="true"><div id="verseFill" class="progress-fill"></div></div>
+                </div>
+                <div class="small">Session <strong id="sessionPercent">—</strong> (<span id="sessionCorrect">0</span>/<span id="sessionTotal">0</span>)</div>
+              </div>
+            </div>
+
+            <div class="footer">
+              <div class="hint small">Press <strong>Space</strong> (or Enter) to submit the word. Space only advances if the word is correct (or after prompt).</div>
+              <div class="centered"><div class="kbd">←</div><div class="small">Prev</div><div class="kbd">→</div><div class="small">Next</div></div>
+            </div>
+          </div>
+        </section>
+
+        <aside class="aside">
+          <div class="verse-card">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div class="small">Completed (perfect)</div>
+              <div style="display:flex;gap:8px">
+                <button id="clearCompleted" class="btn ghost">Clear Completed</button>
+                <button id="exportProgress" class="btn ghost">Export</button>
+              </div>
+            </div>
+
+            <div class="completed-list" id="completedList" aria-live="polite">
+              <!-- completed items appear here -->
+            </div>
+
+            <div class="small">Remaining unseen: <span id="remainingCount">0</span></div>
+            <div style="margin-top:8px" id="finishedBannerArea"></div>
+          </div>
+
+          <div class="verse-card">
+            <div class="small">Visit history: <span id="historyPos">0</span></div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+              <button id="clearProgress" class="btn ghost">Clear progress</button>
+            </div>
+          </div>
+        </aside>
+      </main>
+    </div>
+  </div>
+
+<script>
+/* Recycle wrong & thinner inputs
+   - If a verse finishes and is not perfect, re-add it to the draw pool (so it will be practiced again),
+     but keep it in visit history.
+   - Removed per-word prompt buttons (only global prompt controls remain).
+   - Thinner inputs via CSS.
+*/
+
+let rows = []; // {ref, verse, tokens, wordPositions, currentWordPointer, perfect}
+let masterOrder = []; // indices still eligible
+let allIndices = [];
+let unseenSet = new Set();
+let visitHistory = [];
+let historyPos = -1;
+let sessionAttempted = {};
+let sessionCorrect = 0;
+let sessionTotal = 0;
+let completedSet = new Set();
+
+const els = {
+  csvfile: document.getElementById('csvfile'),
+  tryFetch: document.getElementById('tryFetch'),
+  reference: document.getElementById('reference'),
+  verseLine: document.getElementById('verseLine'),
+  versePercent: document.getElementById('versePercent'),
+  verseFill: document.getElementById('verseFill'),
+  remainingFill: document.getElementById('remainingFill'),
+  sessionPercent: document.getElementById('sessionPercent'),
+  sessionCorrect: document.getElementById('sessionCorrect'),
+  sessionTotal: document.getElementById('sessionTotal'),
+  indexDisplay: document.getElementById('indexDisplay'),
+  fileName: document.getElementById('fileName'),
+  prevBtn: document.getElementById('prevBtn'),
+  nextBtn: document.getElementById('nextBtn'),
+  promptWordBtn: document.getElementById('promptWord'),
+  promptVerseBtn: document.getElementById('promptVerse'),
+  checkAllBtn: document.getElementById('checkAll'),
+  shuffleBtn: document.getElementById('shuffle'),
+  resetSessionBtn: document.getElementById('resetSession'),
+  randomNextCheckbox: document.getElementById('randomNext'),
+  remainingCount: document.getElementById('remainingCount'),
+  historyPos: document.getElementById('historyPos'),
+  exportProgressBtn: document.getElementById('exportProgress'),
+  clearProgressBtn: document.getElementById('clearProgress'),
+  completedList: document.getElementById('completedList'),
+  clearCompletedBtn: document.getElementById('clearCompleted'),
+  finishedBannerArea: document.getElementById('finishedBannerArea'),
+};
+
+els.csvfile.addEventListener('change', e => {
+  const f = e.target.files[0];
+  if (!f) return;
+  els.fileName.textContent = f.name;
+  const reader = new FileReader();
+  reader.onload = () => parseCSV(reader.result);
+  reader.readAsText(f);
+});
+
+els.tryFetch.addEventListener('click', async () => {
+  try {
+    const res = await fetch('references.csv');
+    if (!res.ok) throw new Error('Fetch failed: ' + res.status);
+    const txt = await res.text();
+    els.fileName.textContent = 'references.csv';
+    parseCSV(txt);
+  } catch (err) {
+    alert('Could not fetch ./references.csv. If you opened via file://, fetch is blocked. Use file upload or run a local server.\n\nError: ' + err.message);
+  }
+});
+
+els.shuffleBtn.addEventListener('click', () => {
+  if (!rows.length) return;
+  reshuffleMasterOrder();
+  resetVisitHistory();
+  rebuildUnseenSet();
+  moveToNextRandomOrSequential();
+});
+
+els.resetSessionBtn.addEventListener('click', () => {
+  if (!confirm('Reset session scores?')) return;
+  sessionAttempted = {}; sessionCorrect = 0; sessionTotal = 0; updateSessionUI();
+});
+
+els.prevBtn.addEventListener('click', () => {
+  if (!visitHistory.length) return;
+  if (historyPos > 0) historyPos--;
+  renderCurrentFromHistory();
+});
+
+els.nextBtn.addEventListener('click', () => {
+  if (!rows.length) return;
+  if (historyPos < visitHistory.length - 1) { historyPos++; renderCurrentFromHistory(); return; }
+  moveToNextRandomOrSequential();
+});
+
+els.promptWordBtn.addEventListener('click', () => {
+  const cur = currentVisitedIndex(); if (cur == null) return;
+  const r = rows[cur]; const wp = r.wordPositions;
+  r.currentWordPointer = r.currentWordPointer || 0;
+  if (r.currentWordPointer >= wp.length) return;
+  if (!confirm('Prompt current word? It will be filled, locked and count as incorrect.')) return;
+  const tokIdx = wp[r.currentWordPointer]; const tok = r.tokens[tokIdx];
+  tok.prompted = true; tok.status = 'wrong'; r.currentWordPointer++;
+  renderCurrent(); updateSessionForCurrent(); finishVerseIfNeeded(cur);
+});
+
+els.promptVerseBtn.addEventListener('click', () => {
+  const cur = currentVisitedIndex(); if (cur == null) return;
+  const r = rows[cur];
+  if (!confirm('Prompt entire verse? Remaining words will be filled and locked and count as incorrect.')) return;
+  r.wordPositions.forEach(p => { const t = r.tokens[p]; if (t.status !== 'correct') { t.prompted = true; t.status = 'wrong'; }});
+  r.currentWordPointer = r.wordPositions.length; renderCurrent(); updateSessionForCurrent(); finishVerseIfNeeded(cur);
+});
+
+els.checkAllBtn.addEventListener('click', () => {
+  const cur = currentVisitedIndex(); if (cur == null) return;
+  const r = rows[cur];
+  r.tokens.forEach((t,i) => { if (t.type === 'word' && isTokenVisible(r,i)) validateToken(t,false); });
+  renderCurrent(); updateSessionForCurrent();
+});
+
+els.randomNextCheckbox.addEventListener('change', ()=>{ if(rows.length) rebuildUnseenSet(); updateRemainingUI(); });
+
+els.exportProgressBtn.addEventListener('click', () => {
+  const out = {sessionAttempted,sessionCorrect,sessionTotal, completed: Array.from(completedSet)};
+  const blob = new Blob([JSON.stringify(out,null,2)],{type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download='ra_progress.json'; a.click(); URL.revokeObjectURL(url);
+});
+
+els.clearProgressBtn.addEventListener('click', ()=>{ if(!confirm('Clear stored progress for all verses?')) return;
+  sessionAttempted={}; sessionCorrect=0; sessionTotal=0;
+  rows.forEach(r=>{ r.tokens.forEach(t=>{ if(t.type==='word'){ t.status='unknown'; t.prompted=false; t.userInput=''; }}); r.currentWordPointer=0; r.perfect=false; });
+  completedSet.clear(); rebuildMasterFromAll(); resetVisitHistory(); rebuildUnseenSet(); updateCompletedUI(); updateSessionUI(); renderCurrent();
+});
+
+els.clearCompletedBtn.addEventListener('click', () => {
+  if (!confirm('Clear Completed list so those verses re-enter the pool?')) return;
+  completedSet.forEach(idx => { const r = rows[idx]; if (r) r.perfect = false; });
+  completedSet.clear();
+  rebuildMasterFromAll();
+  rebuildUnseenSet();
+  updateCompletedUI();
+  updateRemainingUI();
+});
+
+// CSV parsing
+function parseCSV(text){
+  const lines=[]; let cur=''; let inQ=false;
+  for(let i=0;i<text.length;i++){
+    const ch=text[i];
+    if(ch==='"'){ inQ=!inQ; cur+=ch; }
+    else if(ch==='\r'){}
+    else if(ch==='\n' && !inQ){ lines.push(cur); cur=''; }
+    else cur+=ch;
+  }
+  if(cur.length) lines.push(cur);
+  const parsed = lines.map(line=>{
+    const fields=[]; let f=''; let q=false;
+    for(let i=0;i<line.length;i++){
+      const ch=line[i];
+      if((ch==='"' || ch==="\'") && line[i-1] !== '\\'){ q=!q; f+=ch; continue; }
+      if(ch===',' && !q){ fields.push(f); f=''; continue; }
+      f+=ch;
+    }
+    fields.push(f);
+    return fields.map(s=>{ s=s.trim(); if(s.startsWith('"')&&s.endsWith('"')) s=s.slice(1,-1).replace(/""/g,'"'); return s; });
+  });
+
+  let rowsRaw = parsed.filter(r=>r.length>=2 && (r[0].trim()!==''||r[1].trim()!==''));
+  if(!rowsRaw.length){ alert('No data found in CSV.'); return; }
+  const first = rowsRaw[0];
+  const headerLike = /ref(erence)?|verse|chapter/i.test(first[0]+' '+first[1]);
+  if(headerLike) rowsRaw = rowsRaw.slice(1);
+
+  rows = rowsRaw.map((r, idx) => {
+    const tok = tokenizeVerse(r[1]);
+    const wordPositions = [];
+    tok.forEach((t,i)=>{ if(t.type==='word') wordPositions.push(i); });
+    return {ref:r[0],verse:r[1],tokens:tok,wordPositions:wordPositions,currentWordPointer:0,perfect:false,originalIndex: idx};
+  });
+
+  allIndices = rows.map((_,i)=>i);
+  completedSet.clear();
+  rebuildMasterFromAll();
+  resetVisitHistory();
+  rebuildUnseenSet();
+  els.fileName.textContent = 'loaded';
+  moveToNextRandomOrSequential();
+  updateSessionUI();
+  updateCompletedUI();
+}
+
+// tokenization
+function tokenizeVerse(text){
+  const tokens=[];
+  // Word tokens: only letters (including accented). Punctuation (including ', ; " - etc.)
+  // will be captured as separate tokens.
+  // Allow internal apostrophes (straight ' and curly ’) so contractions/possessives
+  // like don't and heaven's stay as single word tokens. Include digits so
+  // numbers count as part of words (e.g. 3rd, Psalm23). Other punctuation stays separate.
+  const re = /([A-Za-z0-9\u00C0-\u017F]+(?:[’'][A-Za-z0-9\u00C0-\u017F]+)*|[^A-Za-z0-9\u00C0-\u017F\s]+)/g;
+  let match; let lastIndex=0; const parts=[];
+  while((match=re.exec(text))!==null){
+    const idx=match.index;
+    if(idx>lastIndex){ const between=text.slice(lastIndex,idx); parts.push({type:'spacer',text:between}); }
+    parts.push({type:'match',text:match[0]}); lastIndex=re.lastIndex;
+  }
+  if(lastIndex<text.length) parts.push({type:'spacer',text:text.slice(lastIndex)});
+
+  parts.forEach(p=>{
+    if(p.type==='spacer'){ tokens.push({type:'spacer',text:p.text}); }
+    else {
+      const t = p.text;
+      if(/^[A-Za-z0-9\u00C0-\u017F]+(?:[’'][A-Za-z0-9\u00C0-\u017F]+)*$/.test(t)){
+        tokens.push({type:'word',text:t,userInput:'',status:'unknown',prompted:false});
+      } else {
+        tokens.push({type:'punc',text:t});
+      }
+    }
+  });
+  return tokens;
+}
+
+// order management
+function rebuildMasterFromAll(){
+  masterOrder = allIndices.filter(i => !completedSet.has(i));
+  masterOrder = shuffleArray(masterOrder);
+}
+function reshuffleMasterOrder(){ masterOrder = shuffleArray(masterOrder); }
+function resetVisitHistory(){ visitHistory = []; historyPos = -1; els.historyPos.textContent = '0'; }
+function rebuildUnseenSet(){ unseenSet = new Set(masterOrder); visitHistory.forEach(i=>unseenSet.delete(i)); updateRemainingUI(); }
+
+// navigation
+function moveToNextRandomOrSequential(){
+  if (!rows.length) return;
+  if (completedSet.size === rows.length) { showFinishedBanner(); return; }
+
+  let nextIdx = null;
+  if (els.randomNextCheckbox.checked){
+    if (unseenSet.size === 0){ rebuildUnseenSet(); if (unseenSet.size === 0) { if (completedSet.size === rows.length) { showFinishedBanner(); return; } } }
+    const arr = Array.from(unseenSet);
+    const pick = arr[Math.floor(Math.random() * arr.length)];
+    nextIdx = pick; unseenSet.delete(pick);
+  } else {
+    if (masterOrder.length === 0) {
+      const any = allIndices.find(i => !completedSet.has(i));
+      if (any == null) { showFinishedBanner(); return; }
+      nextIdx = any;
+    } else {
+      if (visitHistory.length === 0) nextIdx = masterOrder[0];
+      else {
+        const lastVisited = visitHistory[visitHistory.length - 1];
+        const posInMaster = masterOrder.indexOf(lastVisited);
+        nextIdx = masterOrder[(posInMaster === -1 ? 0 : (posInMaster + 1) % masterOrder.length)];
+      }
+    }
+  }
+
+  if (nextIdx == null) {
+    const any = allIndices.find(i => !completedSet.has(i));
+    if (any == null) { showFinishedBanner(); return; }
+    nextIdx = any;
+  }
+
+  visitHistory.push(nextIdx); historyPos = visitHistory.length - 1;
+  renderCurrentFromHistory();
+  updateRemainingUI();
+}
+
+function currentVisitedIndex(){ if(historyPos<0||historyPos>=visitHistory.length) return null; return visitHistory[historyPos]; }
+
+function renderCurrentFromHistory(){
+  const curIndex = currentVisitedIndex();
+  if (curIndex == null) return;
+  const r = rows[curIndex];
+  r.tokens.forEach(t=>{ if(t.type==='word'){ t.status = t.status || 'unknown'; t.prompted = !!t.prompted; t.userInput = t.userInput || ''; }});
+  r.currentWordPointer = r.currentWordPointer || 0;
+  while(r.currentWordPointer < r.wordPositions.length && (r.tokens[r.wordPositions[r.currentWordPointer]].status === 'correct' || r.tokens[r.wordPositions[r.currentWordPointer]].prompted)) {
+    r.currentWordPointer++;
+  }
+  renderCurrent(); updateSessionForCurrent();
+  els.historyPos.textContent = (historyPos + 1) + ' / ' + Math.max(1, visitHistory.length);
+}
+
+// rendering (words-only, space-triggered, per-word prompt button removed)
+function renderCurrent(){
+  els.verseLine.innerHTML = '';
+  const cur = currentVisitedIndex();
+  if (cur == null){ els.reference.textContent = 'No file loaded'; els.indexDisplay.textContent = '0 / 0'; return; }
+  const r = rows[cur];
+  els.reference.textContent = r.ref;
+  els.indexDisplay.textContent = (cur + 1) + ' / ' + rows.length;
+
+  const wp = r.wordPositions;
+  const curTokIdx = (r.currentWordPointer < wp.length) ? wp[r.currentWordPointer] : null;
+
+  r.tokens.forEach((tok,i) => {
+    const isWord = tok.type === 'word';
+    let visible = false;
+    if (isWord) {
+      if (i === curTokIdx) visible = true;
+      if (tok.status === 'correct' || tok.prompted) visible = true;
+    } else {
+      // reveal a simple space after previous solved/prompted word only
+      let j = i - 1; while (j >= 0 && r.tokens[j] && r.tokens[j].type !== 'word') j--;
+      if (j >= 0) {
+        const prevWord = r.tokens[j];
+        if (prevWord && (prevWord.status === 'correct' || prevWord.prompted)) visible = true;
+      }
+    }
+
+    if (!visible) {
+      const span = document.createElement('span'); span.className = 'word-pill'; span.style.opacity = '0'; span.textContent = '\u00A0';
+      els.verseLine.appendChild(span);
+      return;
+    }
+
+    if (tok.type === 'punc' || tok.type === 'spacer') {
+      const span = document.createElement('span'); span.className = 'word-pill'; span.style.width = '2px'; span.textContent = '\u00A0';
+      els.verseLine.appendChild(span);
+      return;
+    }
+
+  const wrap = document.createElement('span'); wrap.className = 'word-pill';
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.value = tok.prompted ? tok.text : (tok.userInput || '');
+  input.className = 'word-input';
+  if (tok.status === 'correct') input.classList.add('correct');
+  if (tok.status === 'wrong') input.classList.add('wrong');
+  if (tok.prompted) { input.disabled = true; input.classList.add('correct'); }
+  // size the input based on typed characters (hide full target length)
+  setInputWidth(input, tok);
+
+  if (i !== curTokIdx) { input.readOnly = true; input.tabIndex = -1; }
+  else { setTimeout(() => { input.focus(); input.select(); }, 0); }
+
+    // intercept Space/Enter; advance only when correct (or prompted)
+    input.addEventListener('keydown', (ev) => {
+      if (ev.key === ' ' || ev.code === 'Space' || ev.keyCode === 32) {
+        ev.preventDefault();
+        if (tok.prompted) { r.currentWordPointer++; renderCurrent(); updateSessionForCurrent(); finishVerseIfNeeded(cur); return; }
+        validateToken(tok, /*lockOnCorrect=*/true);
+        if (tok.status === 'correct') {
+          r.currentWordPointer++;
+          renderCurrent(); updateSessionForCurrent(); finishVerseIfNeeded(cur);
+        } else {
+          flashWrong(input);
+        }
+      } else if (ev.key === 'Enter') {
+        ev.preventDefault();
+        if (tok.prompted) { r.currentWordPointer++; renderCurrent(); updateSessionForCurrent(); finishVerseIfNeeded(cur); return; }
+        validateToken(tok, /*lockOnCorrect=*/true);
+        if (tok.status === 'correct') {
+          r.currentWordPointer++;
+          renderCurrent(); updateSessionForCurrent(); finishVerseIfNeeded(cur);
+        } else {
+          flashWrong(input);
+        }
+      }
+    });
+
+    input.addEventListener('input', () => {
+      if (input.value.includes(' ')) input.value = input.value.replace(/\s+/g, '');
+      tok.userInput = input.value;
+      setInputWidth(input, tok);
+    });
+
+    input.addEventListener('blur', () => {
+      if (!tok.prompted) validateToken(tok, /*lockOnCorrect=*/false);
+      renderCurrent(); updateSessionForCurrent();
+    });
+
+    // NOTE: per-word prompt button removed as requested
+
+    wrap.appendChild(input);
+    els.verseLine.appendChild(wrap);
+  });
+
+  updateVersePercent();
+}
+
+// normalize & validate
+function normalizeForCompare(s){
+  if (s == null) return '';
+  s = s.replace(/[’‘]/g, "'").replace(/\u201C|\u201D/g, '"');
+  s = s.replace(/\u00A0/g, ' ');
+  s = s.toLowerCase().trim();
+  s = s.replace(/\s+/g, ' ');
+  return s;
+}
+function validateToken(tok, lockOnCorrect){
+  if (tok.type !== 'word') return;
+  if (tok.prompted) { tok.status = 'wrong'; return; }
+  const expected = normalizeForCompare(tok.text);
+  const given = normalizeForCompare(tok.userInput || '');
+  if (given === expected && expected !== '') {
+    tok.status = 'correct';
+    if (lockOnCorrect) { tok.userInput = tok.text; tok.locked = true; }
+  } else {
+    tok.status = 'wrong';
+  }
+}
+function flashWrong(el){
+  el.classList.add('flash-wrong');
+  el.classList.add('wrong');
+  setTimeout(()=>{ el.classList.remove('flash-wrong'); }, 370);
+}
+function isTokenVisible(r,i){
+  const tok = r.tokens[i];
+  if (!tok) return false;
+  if (tok.type === 'word'){
+    if (tok.status === 'correct' || tok.prompted) return true;
+    const cur = (r.currentWordPointer < r.wordPositions.length) ? r.wordPositions[r.currentWordPointer] : null;
+    if (i === cur) return true;
+    return false;
+  } else {
+    let j = i - 1; while (j >= 0 && r.tokens[j] && r.tokens[j].type !== 'word') j--;
+    if (j >= 0){ const prev=r.tokens[j]; return (prev.status==='correct' || prev.prompted); }
+    return false;
+  }
+}
+
+// update percent & session
+function updateVersePercent(){
+  const cur = currentVisitedIndex();
+  if (cur == null){ els.versePercent.textContent = '—'; if (els.verseFill) els.verseFill.style.width = '0%'; return; }
+  const r = rows[cur];
+  const words = r.tokens.filter(t=>t.type === 'word');
+  const total = words.length;
+  const correct = words.reduce((acc,t)=> acc + (t.status === 'correct' ? 1 : 0), 0);
+  const pct = total ? Math.round((correct / total) * 100) : 0;
+  els.versePercent.textContent = pct + '%';
+  if (els.verseFill) els.verseFill.style.width = pct + '%';
+}
+
+function updateSessionForCurrent(){
+  const cur = currentVisitedIndex();
+  if (cur == null) return;
+  const r = rows[cur];
+  const words = r.tokens.filter(t=>t.type === 'word');
+  const total = words.length;
+  const correct = words.reduce((acc,t)=> acc + (t.status === 'correct' ? 1 : 0), 0);
+  const anyAttempt = words.some(t => t.status !== 'unknown' || (t.userInput && t.userInput.trim() !== '') || t.prompted);
+  if (anyAttempt) sessionAttempted[cur] = { correct, total };
+  sessionCorrect = Object.values(sessionAttempted).reduce((a,b)=>a+(b.correct||0),0);
+  sessionTotal = Object.values(sessionAttempted).reduce((a,b)=>a+(b.total||0),0);
+  els.sessionCorrect.textContent = sessionCorrect;
+  els.sessionTotal.textContent = sessionTotal;
+  els.sessionPercent.textContent = sessionTotal ? Math.round((sessionCorrect/sessionTotal)*100) + '%' : '—';
+  updateCompletedUI();
+}
+
+// finish handler: if verse ended then check perfect; if not perfect recycle and continue
+function finishVerseIfNeeded(verseIndex){
+  const r = rows[verseIndex];
+  if (!r) return;
+  if (r.currentWordPointer < r.wordPositions.length) return; // not finished
+  // determine perfectness
+  const words = r.tokens.filter(t=>t.type==='word');
+  const allCorrect = words.length > 0 && words.every(w => w.status === 'correct');
+  if (allCorrect && !r.perfect) {
+    r.perfect = true;
+    completedSet.add(verseIndex);
+    masterOrder = masterOrder.filter(i => i !== verseIndex);
+    if (unseenSet.has(verseIndex)) unseenSet.delete(verseIndex);
+    updateCompletedUI(); updateRemainingUI();
+    if (completedSet.size === rows.length) { showFinishedBanner(); return; }
+    // auto-advance after a short pause
+    setTimeout(()=>{ if (currentVisitedIndex()===verseIndex) moveToNextRandomOrSequential(); }, 220);
+  } else {
+    // not perfect: recycle into pool so it will be drawn again later,
+    // but keep it in history (we already do). Ensure it's in masterOrder and unseenSet.
+    if (!completedSet.has(verseIndex)) {
+      if (!masterOrder.includes(verseIndex)) masterOrder.push(verseIndex);
+      // shuffle masterOrder to mix it back in (optional)
+      masterOrder = shuffleArray(masterOrder);
+      unseenSet.add(verseIndex);
+    }
+    updateRemainingUI();
+    // advance to next after short pause (keeps flow)
+    setTimeout(()=>{ if (currentVisitedIndex()===verseIndex) moveToNextRandomOrSequential(); }, 220);
+  }
+}
+
+// completed UI
+function updateCompletedUI(){
+  els.completedList.innerHTML = '';
+  const completed = Array.from(completedSet).map(i => ({i, ref: rows[i].ref}));
+  completed.sort((a,b) => a.i - b.i);
+  if (completed.length === 0) {
+    els.completedList.textContent = 'No completed verses yet.';
+    return;
+  }
+  completed.forEach(item => {
+    const div = document.createElement('div');
+    div.className = 'completed-item';
+    const left = document.createElement('div'); left.textContent = item.ref;
+    const right = document.createElement('div'); right.className='small'; right.textContent = 'Perfect';
+    div.appendChild(left); div.appendChild(right);
+    els.completedList.appendChild(div);
+  });
+}
+
+// finished banner
+function showFinishedBanner(){
+  els.finishedBannerArea.innerHTML = '';
+  const banner = document.createElement('div');
+  banner.className = 'banner';
+  banner.textContent = 'All verses have been completed perfectly! Great job.';
+  els.finishedBannerArea.appendChild(banner);
+  els.nextBtn.disabled = true;
+  els.randomNextCheckbox.disabled = true;
+  els.shuffleBtn.disabled = true;
+}
+
+// remaining UI
+function updateRemainingUI(){
+  els.remainingCount.textContent = unseenSet ? unseenSet.size : 0;
+  const total = allIndices.length || 1;
+  const remPct = Math.round(((total - (unseenSet ? unseenSet.size : 0)) / total) * 100);
+  if (els.remainingFill) els.remainingFill.style.width = remPct + '%';
+}
+
+// utilities
+function shuffleArray(a){ const arr = a.slice(); for(let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; } return arr; }
+
+// set input width in characters (ch) based on typed input so the full target
+// word length isn't revealed. If token is prompted, reveal full length.
+function setInputWidth(input, tok){
+  try{
+    const val = input.value || '';
+    const targetLen = (tok && tok.prompted) ? (tok.text ? tok.text.length : val.length) : Math.max(1, val.length);
+    // clamp to avoid extremely wide inputs
+    const len = Math.max(1, Math.min(targetLen, 40));
+    input.style.width = len + 'ch';
+  }catch(e){ /* ignore */ }
+}
+
+// moveToNext & navigation
+function moveToNextRandomOrSequential(){
+  if (!rows.length) return;
+  if (completedSet.size === rows.length) { showFinishedBanner(); return; }
+
+  let nextIdx = null;
+  if (els.randomNextCheckbox.checked){
+    if (unseenSet.size === 0){ rebuildUnseenSet(); if (unseenSet.size === 0) { if (completedSet.size === rows.length) { showFinishedBanner(); return; } } }
+    const arr = Array.from(unseenSet);
+    const pick = arr[Math.floor(Math.random() * arr.length)];
+    nextIdx = pick; unseenSet.delete(pick);
+  } else {
+    if (masterOrder.length === 0) {
+      const any = allIndices.find(i => !completedSet.has(i));
+      if (any == null) { showFinishedBanner(); return; }
+      nextIdx = any;
+    } else {
+      if (visitHistory.length === 0) nextIdx = masterOrder[0];
+      else {
+        const lastVisited = visitHistory[visitHistory.length - 1];
+        const posInMaster = masterOrder.indexOf(lastVisited);
+        nextIdx = masterOrder[(posInMaster === -1 ? 0 : (posInMaster + 1) % masterOrder.length)];
+      }
+    }
+  }
+
+  if (nextIdx == null) {
+    const any = allIndices.find(i => !completedSet.has(i));
+    if (any == null) { showFinishedBanner(); return; }
+    nextIdx = any;
+  }
+
+  visitHistory.push(nextIdx); historyPos = visitHistory.length - 1;
+  renderCurrentFromHistory();
+  updateRemainingUI();
+}
+
+function renderCurrentFromHistory(){
+  const cur = currentVisitedIndex();
+  if (cur == null) return;
+  const r = rows[cur];
+  r.tokens.forEach(t=>{ if(t.type==='word'){ t.status = t.status || 'unknown'; t.prompted = !!t.prompted; t.userInput = t.userInput || ''; }});
+  r.currentWordPointer = r.currentWordPointer || 0;
+  while(r.currentWordPointer < r.wordPositions.length && (r.tokens[r.wordPositions[r.currentWordPointer]].status === 'correct' || r.tokens[r.wordPositions[r.currentWordPointer]].prompted)) {
+    r.currentWordPointer++;
+  }
+  renderCurrent(); updateSessionForCurrent();
+  els.historyPos.textContent = (historyPos + 1) + ' / ' + Math.max(1, visitHistory.length);
+}
+
+function currentVisitedIndex(){ if(historyPos<0||historyPos>=visitHistory.length) return null; return visitHistory[historyPos]; }
+
+// keyboard nav
+document.addEventListener('keydown', (ev) => { if (ev.key === 'ArrowRight') els.nextBtn.click(); if (ev.key === 'ArrowLeft') els.prevBtn.click(); });
+
+</script>
+</body>
+</html>

@@ -4,6 +4,7 @@
 const attempts = {};      // attempts[instanceId] = number
 const revealedFlags = {}; // revealed[instanceId] = true/false
 const askedReveal = {};   // whether we've already asked per-instance
+const hintsGiven = {};    // hintsGiven[instanceId] = number of characters revealed as hints
 function getRandomId(prefix='id'){ return prefix + '_' + Math.random().toString(36).slice(2) + '_' + Math.random().toString(36).slice(2,8); }
 
 // helpers
@@ -21,23 +22,29 @@ function init() {
         attempts[inst] = 0;
         revealedFlags[inst] = false;
         askedReveal[inst] = false;
+        // Track how many hint characters we've revealed for this instance
+        // (0 means no hint shown yet)
+        if (typeof hintsGiven !== 'undefined') {
+            // if global hintsGiven exists and was pre-filled skip
+        }
+        hintsGiven[inst] = 0;
     });
 
     const controls = document.querySelector('.controls') || document.body;
 
     const btnReveal = document.getElementById('reveal');
     if (btnReveal) btnReveal.addEventListener('click', ()=> {
-        const ok = confirm("Reveal all answers? (This will fill every field and mark them revealed)");
-        if (ok) {
-            revealAll();
-            showSummary();
-        }
+        showConfirm("Reveal all answers? (This will fill every field and mark them revealed)", 'Reveal', 'Cancel').then(ok => {
+            if (ok) {
+                revealAll();
+                showSummary();
+            }
+        });
     });
 
     const btnReset = document.getElementById('reset');
     if (btnReset) btnReset.addEventListener('click', ()=> {
-        const ok = confirm("Reset all inputs and progress?");
-        if (ok) resetAll();
+        showConfirm("Reset all inputs and progress?", 'Reset', 'Cancel').then(ok => { if (ok) resetAll(); });
     });
 
     const btnSummary = document.getElementById('summary');
@@ -70,11 +77,26 @@ function init() {
             }
         }, true);
 
-        // allow Enter in an input to run check
+    // allow Enter in an input to run check and Space to grade+move to next
         passage.addEventListener('keydown', function(e){
+            const tgt = e.target;
+            if (!(tgt && tgt.matches && tgt.matches('input.greek'))) return;
+
+            // Enter: run full check
             if (e.key === 'Enter') {
                 e.preventDefault();
                 checkAnswers();
+                return;
+            }
+
+            // Space: grade this input and move focus to next input (prevent inserting a space)
+            if (e.key === ' ' || e.code === 'Space') {
+                // avoid triggering when modifier keys are held
+                if (e.ctrlKey || e.altKey || e.metaKey) return;
+                e.preventDefault();
+                // grade and, if empty, offer a hint
+                gradeSingleInput(tgt, { promptHint: true });
+                focusNextInput(tgt);
             }
         });
     } else {
@@ -85,11 +107,171 @@ function init() {
     const first = document.querySelector('input.greek');
     if (first) first.focus();
 
+    // create popup containers for confirmations and context menu
+    ensurePopupContainers();
+
+    // attach right-click (contextmenu) handler to each greek input
+    document.querySelectorAll('input.greek').forEach(inp => {
+        inp.addEventListener('contextmenu', function(e){
+            e.preventDefault();
+            showContextMenuForInput(inp, e.clientX, e.clientY);
+        });
+    });
+
     // enable autosize behavior
     enableAutosize();
 }
 
-function gradeSingleInput(inp) {
+// Create popup containers (once) used by confirm dialogs and context menus
+function ensurePopupContainers(){
+    if (!document.getElementById('bb-popup-root')){
+        const root = document.createElement('div');
+        root.id = 'bb-popup-root';
+        root.style.position = 'fixed';
+        root.style.left = '0';
+        root.style.top = '0';
+        root.style.width = '100%';
+        root.style.height = '100%';
+        root.style.pointerEvents = 'none';
+        root.style.zIndex = 9999;
+        document.body.appendChild(root);
+    }
+}
+
+// showConfirm: non-blocking replacement for window.confirm. Returns Promise<boolean>.
+function showConfirm(message, okText = 'OK', cancelText = 'Cancel'){
+    return new Promise((resolve) => {
+        const root = document.getElementById('bb-popup-root') || (() => { ensurePopupContainers(); return document.getElementById('bb-popup-root'); })();
+        const overlay = document.createElement('div');
+        overlay.style.position = 'fixed';
+        overlay.style.left = '0';
+        overlay.style.top = '0';
+        overlay.style.width = '100%';
+        overlay.style.height = '100%';
+        overlay.style.background = 'rgba(0,0,0,0.15)';
+        overlay.style.display = 'flex';
+        overlay.style.alignItems = 'center';
+        overlay.style.justifyContent = 'center';
+        overlay.style.pointerEvents = 'auto';
+
+        const box = document.createElement('div');
+        box.style.background = 'white';
+        box.style.color = '#111';
+        box.style.padding = '12px 14px';
+        box.style.borderRadius = '8px';
+        box.style.boxShadow = '0 6px 18px rgba(0,0,0,0.15)';
+        box.style.maxWidth = '420px';
+        box.style.fontFamily = 'system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
+
+        const msg = document.createElement('div');
+        msg.textContent = message;
+        msg.style.marginBottom = '10px';
+        box.appendChild(msg);
+
+        const btnRow = document.createElement('div');
+        btnRow.style.display = 'flex';
+        btnRow.style.justifyContent = 'flex-end';
+        btnRow.style.gap = '8px';
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.textContent = cancelText;
+        cancelBtn.style.padding = '6px 10px';
+        cancelBtn.style.border = 'none';
+        cancelBtn.style.background = '#eee';
+        cancelBtn.style.borderRadius = '6px';
+        cancelBtn.addEventListener('click', ()=>{ cleanup(false); });
+
+        const okBtn = document.createElement('button');
+        okBtn.textContent = okText;
+        okBtn.style.padding = '6px 10px';
+        okBtn.style.border = 'none';
+        okBtn.style.background = '#2b76d2';
+        okBtn.style.color = 'white';
+        okBtn.style.borderRadius = '6px';
+        okBtn.addEventListener('click', ()=>{ cleanup(true); });
+
+        btnRow.appendChild(cancelBtn);
+        btnRow.appendChild(okBtn);
+        box.appendChild(btnRow);
+
+        overlay.appendChild(box);
+        root.appendChild(overlay);
+
+        // cleanup helper
+        function cleanup(result){
+            if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay);
+            resolve(Boolean(result));
+        }
+
+        // keyboard handling
+        function keyHandler(e){
+            if (e.key === 'Escape') { cleanup(false); }
+            if (e.key === 'Enter') { cleanup(true); }
+        }
+        document.addEventListener('keydown', keyHandler, { once: true });
+    });
+}
+
+// Show a tiny context menu for an input at (x,y)
+function showContextMenuForInput(inp, x, y){
+    // remove existing
+    const existing = document.getElementById('bb-context-menu');
+    if (existing) existing.remove();
+
+
+    const menu = document.createElement('div');
+    menu.id = 'bb-context-menu';
+    menu.style.position = 'fixed';
+    menu.style.left = x + 'px';
+    menu.style.top = y + 'px';
+    menu.style.background = 'white';
+    menu.style.boxShadow = '0 4px 12px rgba(0,0,0,0.12)';
+    menu.style.borderRadius = '6px';
+    menu.style.padding = '6px';
+    menu.style.zIndex = 10000;
+    menu.style.fontFamily = 'system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
+
+    const word = document.createElement('div')
+    var text = inp.placeholder;
+    word.textContent = text.charAt(0).toUpperCase() + text.slice(1);
+    word.style.padding = '6px 10px';
+    word.style.fontWeight = "bold";
+    word.style.background = '#c9c9c9ff';
+    menu.appendChild(word);
+
+    const revealOpt = document.createElement('div');
+    revealOpt.textContent = 'Reveal word';
+    revealOpt.style.padding = '6px 10px';
+    revealOpt.style.cursor = 'pointer';
+    revealOpt.addEventListener('click', ()=>{ revealSingle(inp, true); menu.remove(); });
+
+    const hintOpt = document.createElement('div');
+    hintOpt.textContent = 'Get hint (next char)';
+    hintOpt.style.padding = '6px 10px';
+    hintOpt.style.cursor = 'pointer';
+    hintOpt.addEventListener('click', ()=>{ revealNextChar(inp); menu.remove(); });
+
+    const cancelOpt = document.createElement('div');
+    cancelOpt.textContent = 'Cancel';
+    cancelOpt.style.padding = '6px 10px';
+    cancelOpt.style.cursor = 'pointer';
+    cancelOpt.style.color = '#666';
+    cancelOpt.addEventListener('click', ()=>{ menu.remove(); });
+
+    [revealOpt, hintOpt, cancelOpt].forEach(n => {
+        n.addEventListener('mouseenter', ()=> n.style.background = '#f2f6fb');
+        n.addEventListener('mouseleave', ()=> n.style.background = '');
+        menu.appendChild(n);
+    });
+
+    document.body.appendChild(menu);
+
+    // close on next click outside
+    const onDocClick = (ev) => { if (!menu.contains(ev.target)) { menu.remove(); document.removeEventListener('mousedown', onDocClick); } };
+    setTimeout(()=> document.addEventListener('mousedown', onDocClick), 0);
+}
+
+function gradeSingleInput(inp, options = {}) {
     const key = inp.dataset.key;
     const inst = inp.dataset.instance;
     if (revealedFlags[inst]) {
@@ -101,6 +283,19 @@ function gradeSingleInput(inp) {
     const user = normalize(inp.value);
     if (!user) {
     inp.classList.remove("correct","incorrect");
+    // If caller requested a hint prompt (e.g., via space key), offer next-character hint
+    if (options.promptHint) {
+        // only prompt if there is at least one character left to reveal
+        const full = key || '';
+        const already = hintsGiven[inst] || 0;
+        if (already < full.length) {
+            const wantHint = confirm(`No entry for "${inp.placeholder || full}". Reveal the next character as a hint?`);
+            if (wantHint) {
+                revealNextChar(inp);
+                return "hinted";
+            }
+        }
+    }
     return "empty";
     }
     const exp = normalize(key || "");
@@ -122,7 +317,8 @@ function gradeSingleInput(inp) {
         askedReveal[inst] = true;
         // small asynchronous prompt so UI updates (e.g., red border) before confirm
         setTimeout(()=> {
-        const want = confirm(`You've tried "${inp.placeholder}" (${attempts[inst]} wrong attempts). Reveal the answer for this word?`);
+        //const want = confirm(`You've tried "${inp.placeholder}" (${attempts[inst]} wrong attempts). Reveal the answer for this word?`);
+        const want = confirm("Do you want to reveal the answer for this word?");
         if (want) {
             revealSingle(inp, true);
         } else {
@@ -135,6 +331,46 @@ function gradeSingleInput(inp) {
         }, 50);
     }
     return "incorrect";
+    }
+}
+
+// Reveal the next character of the answer for this input (used as a hint).
+function revealNextChar(inp) {
+    const key = inp.dataset.key || '';
+    const inst = inp.dataset.instance;
+    const already = hintsGiven[inst] || 0;
+    if (already >= key.length) {
+        // already fully revealed
+        revealSingle(inp, true);
+        return;
+    }
+    const nextCount = already + 1;
+    const newVal = key.slice(0, nextCount);
+    inp.value = newVal;
+    hintsGiven[inst] = nextCount;
+    // mark as partially revealed visually
+    inp.classList.remove('correct','incorrect');
+    inp.classList.add('hint');
+    // if fully revealed now, switch to full revealed state
+    if (nextCount >= key.length) {
+        revealedFlags[inst] = true;
+        inp.classList.remove('hint');
+        inp.classList.add('revealed');
+        inp.setAttribute('readonly','readonly');
+    }
+    // resize the input to fit the revealed text
+    try { setInputWidthToFit(inp); } catch (e) { /* ignore if not available yet */ }
+}
+
+// Move focus to the next input.greek after `from`. If at end, focus stays.
+function focusNextInput(from) {
+    const inputs = Array.from(document.querySelectorAll('input.greek'));
+    const idx = inputs.indexOf(from);
+    if (idx >= 0 && idx < inputs.length - 1) {
+        const nxt = inputs[idx + 1];
+        nxt.focus();
+        // select existing content so typing replaces it
+        try { nxt.select(); } catch (e) { /* ignore */ }
     }
 }
 
@@ -167,6 +403,10 @@ function revealSingle(inp, setReadonly = true) {
     if (setReadonly) {
     inp.setAttribute('readonly','readonly');
     }
+    // mark hints as fully given
+    hintsGiven[inst] = (key || '').length;
+    // resize to fit full value
+    try { setInputWidthToFit(inp); } catch (e) { /* noop */ }
     // update score display (revealed does not count as correct)
     checkAnswers();
 }
@@ -175,7 +415,10 @@ function revealAll() {
     const inputs = Array.from(document.querySelectorAll('input.greek'));
     inputs.forEach(inp => {
         if(!inp.classList.contains('correct') && !inp.classList.contains('incorrect')){
-            revealSingle(inp, true)
+            revealSingle(inp, true);
+        } else {
+            // also ensure corrected inputs are resized to their full expected value if they are revealed later
+            try { setInputWidthToFit(inp); } catch (e) {}
         }
     });
     // mark askedReveal so we don't prompt again
@@ -188,11 +431,14 @@ function resetAll() {
     inp.value = "";
     inp.classList.remove("correct","incorrect","revealed");
     inp.removeAttribute('readonly');
+    inp.classList.remove('hint');
+    try { setInputWidthToFit(inp); } catch (e) {}
     });
     // reset state
     Object.keys(attempts).forEach(k => attempts[k] = 0);
     Object.keys(revealedFlags).forEach(k => revealedFlags[k] = false);
     Object.keys(askedReveal).forEach(k => askedReveal[k] = false);
+    Object.keys(hintsGiven).forEach(k => hintsGiven[k] = 0);
     document.getElementById('score').textContent = "";
     document.getElementById('summaryBox').style.display = 'none';
     document.getElementById('summaryBox').innerHTML = '';
@@ -329,6 +575,7 @@ const inputs = document.querySelectorAll(".greek");
 const placeholderReader = document.getElementById("placeholder_reader");
 
 function resetPlaceholderReader() {
+    if (!placeholderReader) return;
     placeholderReader.innerHTML = "";
     placeholderReader.style.display = "none";
     placeholderReader.style.left = "-9999px";
@@ -337,19 +584,52 @@ function resetPlaceholderReader() {
 
 resetPlaceholderReader();
 
+// Hover timers: if the mouse stays over an input for 5s, reveal its placeholder
+const hoverTimers = {}; // hoverTimers[instance] = timeoutId
+
 inputs.forEach(input => {
+    // guard if placeholderReader not present
     input.addEventListener("mouseenter", (e) => {
-        const text = input.placeholder;
+        const text = input.placeholder || '';
         const mouseX = e.clientX;
         const mouseY = e.clientY;
-        
-        placeholderReader.innerHTML = text;
-        placeholderReader.style.display = "block";
-        placeholderReader.style.left = mouseX + "px";
-        placeholderReader.style.top = mouseY + "px";
+
+        if (placeholderReader) {
+            placeholderReader.innerHTML = text;
+            placeholderReader.style.display = text ? 'block' : 'none';
+            placeholderReader.style.left = mouseX + "px";
+            placeholderReader.style.top = mouseY + "px";
+        }
+
+        // Start hover timer: reveal placeholder into the input after 5 seconds
+        const inst = input.dataset.instance || getRandomId('inst');
+        // don't start if already revealed or has content or readonly
+        if (revealedFlags[inst] || input.value.trim() !== '' || input.readOnly) return;
+        if (hoverTimers[inst]) clearTimeout(hoverTimers[inst]);
+        hoverTimers[inst] = setTimeout(() => {
+            // if still hovered (no mouseleave fired), reveal placeholder text into the input as a hint
+            // ensure input still empty and not revealed
+            if (input.matches(':hover') && !revealedFlags[inst] && input.value.trim() === '' && !input.readOnly) {
+                // reveal placeholder value into input (as a hint, not full reveal)
+                input.value = input.placeholder || '';
+                // mark hint state and update hintsGiven for this instance
+                hintsGiven[inst] = (input.value || '').length;
+                input.classList.remove('correct','incorrect');
+                input.classList.add('hint');
+                try { setInputWidthToFit(input); } catch (e) {}
+            }
+            delete hoverTimers[inst];
+        }, 5000);
     });
 
-    input.addEventListener("mouseleave", resetPlaceholderReader);
+    input.addEventListener("mouseleave", (e) => {
+        resetPlaceholderReader();
+        const inst = input.dataset.instance;
+        if (inst && hoverTimers[inst]) {
+            clearTimeout(hoverTimers[inst]);
+            delete hoverTimers[inst];
+        }
+    });
 });
 
 

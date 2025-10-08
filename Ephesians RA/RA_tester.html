@@ -64,7 +64,8 @@
           <input id="csvfile" type="file" accept=".csv" />
           <span class="small">Upload references.csv</span>
         </label>
-        <button id="tryFetch" class="btn secondary">Load ./references.csv</button>
+  <button id="tryFetch" class="btn secondary">Load ./references.csv</button>
+  <button id="editFile" class="btn ghost" title="Edit currently loaded file">Edit file</button>
         <button id="shuffle" class="btn ghost">Shuffle</button>
         <button id="resetSession" class="btn ghost">Reset Scores</button>
 
@@ -120,6 +121,7 @@
               <div style="display:flex;gap:8px">
                 <button id="clearCompleted" class="btn ghost">Clear Completed</button>
                 <button id="exportProgress" class="btn ghost">Export</button>
+                <button id="saveNow" class="btn ghost">Save</button>
               </div>
             </div>
 
@@ -160,10 +162,13 @@ let sessionAttempted = {};
 let sessionCorrect = 0;
 let sessionTotal = 0;
 let completedSet = new Set();
+let currentFileText = null; // text of the currently loaded CSV (for editing)
+let currentFileName = null; // friendly name of the loaded file
 
 const els = {
   csvfile: document.getElementById('csvfile'),
   tryFetch: document.getElementById('tryFetch'),
+  editFile: document.getElementById('editFile'),
   reference: document.getElementById('reference'),
   verseLine: document.getElementById('verseLine'),
   versePercent: document.getElementById('versePercent'),
@@ -196,7 +201,12 @@ els.csvfile.addEventListener('change', e => {
   if (!f) return;
   els.fileName.textContent = f.name;
   const reader = new FileReader();
-  reader.onload = () => parseCSV(reader.result);
+  reader.onload = () => {
+    // store uploaded file text so editor can edit it
+    currentFileText = reader.result;
+    currentFileName = f.name;
+    parseCSV(reader.result);
+  };
   reader.readAsText(f);
 });
 
@@ -206,6 +216,9 @@ els.tryFetch.addEventListener('click', async () => {
     if (!res.ok) throw new Error('Fetch failed: ' + res.status);
     const txt = await res.text();
     els.fileName.textContent = 'references.csv';
+    // store current file contents for editing
+    currentFileText = txt;
+    currentFileName = 'references.csv';
     parseCSV(txt);
   } catch (err) {
     alert('Could not fetch ./references.csv. If you opened via file://, fetch is blocked. Use file upload or run a local server.\n\nError: ' + err.message);
@@ -737,6 +750,168 @@ function currentVisitedIndex(){ if(historyPos<0||historyPos>=visitHistory.length
 // keyboard nav
 document.addEventListener('keydown', (ev) => { if (ev.key === 'ArrowRight') els.nextBtn.click(); if (ev.key === 'ArrowLeft') els.prevBtn.click(); });
 
+function saveProgress() {
+  if (!rows.length) return;
+  const data = {
+    rows: rows.map(r => ({
+      ref: r.ref,
+      verse: r.verse,
+      tokens: r.tokens.map(t => ({
+        type: t.type,
+        text: t.text,
+        status: t.status,
+        prompted: t.prompted,
+        userInput: t.userInput
+      })),
+      wordPositions: r.wordPositions,
+      currentWordPointer: r.currentWordPointer,
+      perfect: r.perfect,
+      originalIndex: r.originalIndex
+    })),
+    visitHistory,
+    historyPos,
+    sessionAttempted,
+    sessionCorrect,
+    sessionTotal,
+    completed: Array.from(completedSet),
+    unseen: Array.from(unseenSet),
+    fileName: els.fileName.textContent
+  };
+  localStorage.setItem("ra_drill_progress", JSON.stringify(data));
+}
+
+function loadProgress() {
+  const saved = localStorage.getItem("ra_drill_progress");
+  if (!saved) return false;
+  try {
+    const data = JSON.parse(saved);
+    rows = data.rows;
+    allIndices = rows.map((_,i)=>i);
+    visitHistory = data.visitHistory || [];
+    historyPos = data.historyPos ?? -1;
+    sessionAttempted = data.sessionAttempted || {};
+    sessionCorrect = data.sessionCorrect || 0;
+    sessionTotal = data.sessionTotal || 0;
+    completedSet = new Set(data.completed || []);
+    unseenSet = new Set(data.unseen || []);
+    els.fileName.textContent = data.fileName || "loaded";
+
+    updateSessionUI();
+    updateCompletedUI();
+    renderCurrentFromHistory();
+    updateRemainingUI();
+    return true;
+  } catch (err) {
+    console.error("Could not load saved progress:", err);
+    return false;
+  }
+}
+document.getElementById("saveNow").addEventListener("click", saveProgress);
+
+window.addEventListener("load", () => {
+  if (loadProgress()) {
+    console.log("Progress loaded!");
+  } else {
+    console.log("No saved progress found.");
+  }
+});
+
+// --- Inline file editor modal ---
+// append modal HTML to body
+(function(){
+  const modalHtml = `
+  <div id="ra-editor-modal" style="display:none;position:fixed;inset:0;align-items:center;justify-content:center;z-index:10001;">
+    <div style="background:rgba(0,0,0,0.25);position:absolute;inset:0"></div>
+    <div style="position:relative;width:90%;max-width:900px;background:white;border-radius:10px;padding:12px;box-shadow:0 12px 40px rgba(2,6,23,0.35);font-family:system-ui,Segoe UI,Roboto,Arial;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <strong>Edit file</strong>
+        <div style="display:flex;gap:8px">
+          <button id="ra-editor-save" class="btn">Save & Apply</button>
+          <button id="ra-editor-saveas" class="btn ghost">Save to disk</button>
+          <button id="ra-editor-close" class="btn ghost">Close</button>
+        </div>
+      </div>
+      <textarea id="ra-editor-text" style="width:100%;height:420px;font-family:monospace;font-size:13px;border:1px solid #eef2ff;padding:10px;border-radius:8px;">` + (currentFileText ? escapeHtml(currentFileText) : '') + `</textarea>
+    </div>
+  </div>`;
+  const tmp = document.createElement('div'); tmp.innerHTML = modalHtml;
+  document.body.appendChild(tmp.firstElementChild);
+})();
+
+function escapeHtml(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// open editor and populate textarea with currentFileText (or blank)
+function openEditor(){
+  const modal = document.getElementById('ra-editor-modal');
+  const ta = document.getElementById('ra-editor-text');
+  if (!modal || !ta) return;
+  ta.value = currentFileText || '';
+  modal.style.display = 'flex';
+  ta.focus();
+}
+
+function closeEditor(){
+  const modal = document.getElementById('ra-editor-modal');
+  if (!modal) return; modal.style.display = 'none';
+}
+
+// Save edited text: apply (re-parse) and optionally save to disk
+async function saveEditedAndApply(){
+  const ta = document.getElementById('ra-editor-text');
+  if (!ta) return;
+  const txt = ta.value;
+  currentFileText = txt;
+  // try to parse and apply
+  try {
+    parseCSV(txt);
+    els.fileName.textContent = currentFileName || 'edited.csv';
+    alert('File applied and parsed successfully.');
+    closeEditor();
+  } catch (err) {
+    alert('Could not parse edited CSV: ' + err.message);
+  }
+}
+
+// Save to disk: use File System Access API if available, otherwise download
+async function saveEditedToDisk(){
+  const ta = document.getElementById('ra-editor-text');
+  if (!ta) return;
+  const txt = ta.value;
+  const name = currentFileName || 'references_edited.csv';
+  // try File System Access
+  if (window.showSaveFilePicker) {
+    try {
+      const handle = await window.showSaveFilePicker({ suggestedName: name, types: [{description:'CSV', accept:{'text/csv':['.csv']}}] });
+      const writable = await handle.createWritable();
+      await writable.write(txt);
+      await writable.close();
+      els.fileName.textContent = name;
+      currentFileName = name;
+      alert('Saved to disk.');
+      closeEditor();
+      return;
+    } catch (err) {
+      console.warn('saveFilePicker failed', err);
+    }
+  }
+  // fallback: download
+  const blob = new Blob([txt], {type: 'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+  els.fileName.textContent = name;
+  currentFileName = name;
+  alert('Saved as download.');
+  closeEditor();
+}
+
+// wire modal buttons
+document.addEventListener('DOMContentLoaded', ()=>{
+  const editBtn = document.getElementById('editFile');
+  if (editBtn) editBtn.addEventListener('click', openEditor);
+  const saveBtn = document.getElementById('ra-editor-save'); if (saveBtn) saveBtn.addEventListener('click', saveEditedAndApply);
+  const saveAsBtn = document.getElementById('ra-editor-saveas'); if (saveAsBtn) saveAsBtn.addEventListener('click', saveEditedToDisk);
+  const closeBtn = document.getElementById('ra-editor-close'); if (closeBtn) closeBtn.addEventListener('click', closeEditor);
+});
 </script>
 </body>
 </html>

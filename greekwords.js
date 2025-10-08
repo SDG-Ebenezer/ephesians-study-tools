@@ -582,10 +582,45 @@ function resetPlaceholderReader() {
     placeholderReader.style.top = "-9999px";
 }
 
+// Position the placeholderReader in a UI-friendly spot adjacent to the input element.
+function positionPlaceholderReaderNearInput(input){
+    if (!placeholderReader || !input) return;
+    const text = input.placeholder || '';
+    if (!text) return;
+
+    // ensure the reader is measurable
+    placeholderReader.style.display = 'block';
+    placeholderReader.innerHTML = text;
+    placeholderReader.style.maxWidth = '320px';
+    placeholderReader.style.whiteSpace = 'normal';
+
+    // measure sizes
+    const inpRect = input.getBoundingClientRect();
+    const readerRect = placeholderReader.getBoundingClientRect();
+    const padding = 8; // gap between input and tooltip
+
+    // try to place to the right centered vertically
+    let left = Math.round(inpRect.right + padding);
+    let top = Math.round(inpRect.top + (inpRect.height - readerRect.height) / 2);
+
+    // if right overflow, place on left
+    if (left + readerRect.width > window.innerWidth - 8) {
+        left = Math.round(inpRect.left - readerRect.width - padding);
+    }
+    // clamp vertically
+    if (top < 8) top = 8;
+    if (top + readerRect.height > window.innerHeight - 8) top = Math.max(8, window.innerHeight - readerRect.height - 8);
+
+    placeholderReader.style.left = left + 'px';
+    placeholderReader.style.top = top + 'px';
+}
+
 resetPlaceholderReader();
 
 // Hover timers: if the mouse stays over an input for 5s, reveal its placeholder
-const hoverTimers = {}; // hoverTimers[instance] = timeoutId
+const hoverTimers = {}; // hoverTimers[instance] = timeoutId (5s reveal into input)
+const hoverDisplayTimers = {}; // hoverDisplayTimers[instance] = timeoutId (2s tooltip show)
+const hoverLastPos = {}; // hoverLastPos[instance] = {x,y}
 
 inputs.forEach(input => {
     // guard if placeholderReader not present
@@ -593,16 +628,21 @@ inputs.forEach(input => {
         const text = input.placeholder || '';
         const mouseX = e.clientX;
         const mouseY = e.clientY;
+        const inst = input.dataset.instance || getRandomId('inst');
 
-        if (placeholderReader) {
-            placeholderReader.innerHTML = text;
-            placeholderReader.style.display = text ? 'block' : 'none';
-            placeholderReader.style.left = mouseX + "px";
-            placeholderReader.style.top = mouseY + "px";
+        // store last position
+        hoverLastPos[inst] = { x: mouseX, y: mouseY };
+
+        // Start tooltip display timer (1s). The timer will be restarted on every mousemove,
+        // so the tooltip only appears after the mouse has been stationary for 1 seconds.
+        if (hoverDisplayTimers[inst]) clearTimeout(hoverDisplayTimers[inst]);
+        if (placeholderReader && text) {
+            hoverDisplayTimers[inst] = setTimeout(() => {
+                positionPlaceholderReaderNearInput(input);
+            }, 2000);
         }
 
         // Start hover timer: reveal placeholder into the input after 5 seconds
-        const inst = input.dataset.instance || getRandomId('inst');
         // don't start if already revealed or has content or readonly
         if (revealedFlags[inst] || input.value.trim() !== '' || input.readOnly) return;
         if (hoverTimers[inst]) clearTimeout(hoverTimers[inst]);
@@ -622,6 +662,22 @@ inputs.forEach(input => {
         }, 5000);
     });
 
+    // restart tooltip timer on small moves; if user keeps moving, the tooltip will not appear until 2s after last movement
+    input.addEventListener('mousemove', (e) => {
+        const inst = input.dataset.instance;
+        if (!inst) return;
+        const pos = { x: e.clientX, y: e.clientY };
+        hoverLastPos[inst] = pos;
+        // restart tooltip timer
+        if (hoverDisplayTimers[inst]) clearTimeout(hoverDisplayTimers[inst]);
+        const text = input.placeholder || '';
+        if (placeholderReader && text) {
+            hoverDisplayTimers[inst] = setTimeout(() => {
+                positionPlaceholderReaderNearInput(input);
+            }, 2000);
+        }
+    });
+
     input.addEventListener("mouseleave", (e) => {
         resetPlaceholderReader();
         const inst = input.dataset.instance;
@@ -629,6 +685,11 @@ inputs.forEach(input => {
             clearTimeout(hoverTimers[inst]);
             delete hoverTimers[inst];
         }
+        if (inst && hoverDisplayTimers[inst]) {
+            clearTimeout(hoverDisplayTimers[inst]);
+            delete hoverDisplayTimers[inst];
+        }
+        if (inst && hoverLastPos[inst]) delete hoverLastPos[inst];
     });
 });
 

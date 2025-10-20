@@ -1,4 +1,3 @@
-const ADD_MENTION_TIMES = false
 // state trackers
 // We track state per input instance (unique id) so duplicate words (same data-key)
 // are treated independently.
@@ -482,8 +481,8 @@ function showSummary() {
             const placeholders = Array.from(data.placeholders);
             const label = placeholders.join(', ') || key;
             const info = [];
-            if (data.incorrect > 0 && ADD_MENTION_TIMES) info.push(`${data.incorrect}× wrong`);
-            if (data.revealed > 0 && ADD_MENTION_TIMES) info.push(`${data.revealed}× revealed`);
+            //if (data.incorrect > 0) info.push(`${data.incorrect}× wrong`);
+            //if (data.revealed > 0) info.push(`${data.revealed}× revealed`);
             return `${key} — ${label}${info.length ? ` (${info.join(', ')})` : ''}`;
         });
 

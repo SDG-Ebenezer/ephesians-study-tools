@@ -444,49 +444,67 @@ function resetAll() {
     document.getElementById('summaryBox').innerHTML = '';
 }
 
-// build summary: counts and list of words to practice
+// build summary: counts and list of words to practice (duplicates combined)
 function showSummary() {
     const inputs = Array.from(document.querySelectorAll('input.greek'));
     const total = inputs.length;
     let correct = 0, revealed = 0, incorrect = 0, empty = 0;
-    const practice = []; // words to work on: incorrect/unrevealed OR revealed
+    const wordStats = {}; // key -> { attempts, revealed, incorrect, placeholders:Set }
+
+    // Collect per-word stats
     inputs.forEach(inp => {
-    const key = inp.dataset.key;
-    const inst = inp.dataset.instance;
-    const state = inp.classList.contains('revealed') ? 'revealed'
-                : inp.classList.contains('correct') ? 'correct'
-                : inp.classList.contains('incorrect') ? 'incorrect' : 'empty';
-    const user = normalize(inp.value);
-    if (state === 'correct') correct++;
-    else if (state === 'revealed') { revealed++; practice.push({ key, inst }); }
-    else if (state === 'incorrect') { incorrect++; practice.push({ key, inst }); }
-    else empty++;
+        const key = inp.dataset.key || '';
+        const inst = inp.dataset.instance;
+        const state = inp.classList.contains('revealed') ? 'revealed'
+                    : inp.classList.contains('correct') ? 'correct'
+                    : inp.classList.contains('incorrect') ? 'incorrect'
+                    : 'empty';
+        const user = normalize(inp.value);
+        const ph = (inp.placeholder || '').trim();
+
+        if (!wordStats[key]) {
+            wordStats[key] = { attempts: 0, revealed: 0, incorrect: 0, placeholders: new Set() };
+        }
+        if (ph) wordStats[key].placeholders.add(ph);
+        wordStats[key].attempts += (attempts[inst] || 0);
+        if (state === 'correct') correct++;
+        else if (state === 'revealed') { revealed++; wordStats[key].revealed++; }
+        else if (state === 'incorrect') { incorrect++; wordStats[key].incorrect++; }
+        else empty++;
     });
 
-    // prepare readable list (use expected transliteration)
-    // prioritize incorrect over revealed, sort by attempts desc to suggest those you struggled with
-    practice.sort((a,b) => (attempts[b.inst]||0) - (attempts[a.inst]||0));
-    const practiceList = practice.map(item => {
-        const key = item.key;
-        // Try to collect English translations from placeholders of inputs with the same data-key
-        const selectorKey = (window.CSS && CSS.escape) ? CSS.escape(key) : key;
-        const inputsForKey = Array.from(document.querySelectorAll(`input.greek[data-key="${selectorKey}"]`));
-        const placeholders = inputsForKey.map(i => (i.placeholder || '').trim()).filter(Boolean);
-        // dedupe while preserving order
-        const uniq = Array.from(new Set(placeholders));
-        const label = uniq.length ? uniq.join(', ') : (key || '');
-        return `${key} — ${label}`;
-    });
+    // Build combined practice list (one entry per unique word needing practice)
+    const practiceList = Object.entries(wordStats)
+        .filter(([key, data]) => data.revealed > 0 || data.incorrect > 0)
+        .sort((a,b) => b[1].attempts - a[1].attempts)
+        .map(([key, data]) => {
+            const placeholders = Array.from(data.placeholders);
+            const label = placeholders.join(', ') || key;
+            const info = [];
+            if (data.incorrect > 0) info.push(`${data.incorrect}× wrong`);
+            if (data.revealed > 0) info.push(`${data.revealed}× revealed`);
+            return `${key} — ${label}${info.length ? ` (${info.join(', ')})` : ''}`;
+        });
 
+    // render summary box
     const summaryEl = document.getElementById('summaryBox');
     summaryEl.style.display = 'block';
     summaryEl.innerHTML = `
-    <h3>Summary</h3>
-    <div><strong>Total fields:</strong> ${total}</div>
-    <div><strong>Correct:</strong> ${correct} &nbsp; <strong>Revealed/Incorrect:</strong> ${revealed + incorrect} &nbsp; <strong>Empty:</strong> ${empty}</div>
-    <p style="margin-top:8px">Suggestion: practice the words below. Start with those you've tried multiple times.</p>
-    ${practiceList.length ? `<ul>${practiceList.map(s => `<li>${escapeHtml(s)}</li>`).join('')}</ul>` : '<div>No suggested words — great job! 🎉</div>'}
-    <p style="margin-top:8px; color:var(--muted)">Tip: try flashcards for the top 8 words here, or type them 5× each to build recall.</p>
+        <h3>Summary</h3>
+        <div><strong>Total fields:</strong> ${total}</div>
+        <div><strong>Correct:</strong> ${correct} &nbsp;
+             <strong>Revealed/Incorrect:</strong> ${revealed + incorrect} &nbsp;
+             <strong>Empty:</strong> ${empty}</div>
+        <p style="margin-top:8px">
+            Suggestion: practice the words below. Start with those you've tried multiple times.
+        </p>
+        ${practiceList.length
+            ? `<ul>${practiceList.map(s => `<li>${escapeHtml(s)}</li>`).join('')}</ul>`
+            : '<div>No suggested words — great job! 🎉</div>'
+        }
+        <p style="margin-top:8px; color:var(--muted)">
+            Tip: try flashcards for the top 8 words here, or type them 5× each to build recall.
+        </p>
     `;
 }
 

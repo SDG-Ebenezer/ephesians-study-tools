@@ -461,7 +461,7 @@ function showSummary() {
                     : inp.classList.contains('correct') ? 'correct'
                     : inp.classList.contains('incorrect') ? 'incorrect'
                     : 'empty';
-        const user = normalize(inp.value);
+        //const user = normalize(inp.value);
         const ph = (inp.placeholder || '').trim();
 
         if (!wordStats[key]) {

@@ -443,10 +443,13 @@ function resetAll() {
     document.getElementById('summaryBox').style.display = 'none';
     document.getElementById('summaryBox').innerHTML = '';
 }
+// Capitalize only the first letter of a string, leave the rest as-is
 function capitalizeFirstLetter(str) {
-  return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+    if (!str) return str;
+    return str.charAt(0).toUpperCase() + str.slice(1);
 }
-// build summary: counts and list of words to practice (duplicates combined)
+
+// Build summary: counts and list of words to practice (duplicates combined)
 function showSummary() {
     const inputs = Array.from(document.querySelectorAll('input.greek'));
     const total = inputs.length;
@@ -461,7 +464,6 @@ function showSummary() {
                     : inp.classList.contains('correct') ? 'correct'
                     : inp.classList.contains('incorrect') ? 'incorrect'
                     : 'empty';
-        //const user = normalize(inp.value);
         const ph = (inp.placeholder || '').trim();
 
         if (!wordStats[key]) {
@@ -469,6 +471,7 @@ function showSummary() {
         }
         if (ph) wordStats[key].placeholders.add(ph);
         wordStats[key].attempts += (attempts[inst] || 0);
+
         if (state === 'correct') correct++;
         else if (state === 'revealed') { revealed++; wordStats[key].revealed++; }
         else if (state === 'incorrect') { incorrect++; wordStats[key].incorrect++; }
@@ -478,18 +481,19 @@ function showSummary() {
     // Build combined practice list (one entry per unique word needing practice)
     const allPlaceholders = Object.entries(wordStats)
         .filter(([key, data]) => data.revealed > 0 || data.incorrect > 0)
-        .sort((a,b) => b[1].attempts - a[1].attempts)
+        .sort((a, b) => b[1].attempts - a[1].attempts)
         .map(([key, data]) => {
-            const placeholders = Array.from(capitalizeFirstLetter(data.placeholders));
+            // Capitalize each placeholder properly
+            const placeholders = Array.from(data.placeholders).map(ph => capitalizeFirstLetter(ph));
             const label = placeholders.join(', ') || key;
-            const info = [];
-            //if (data.incorrect > 0) info.push(`${data.incorrect}× wrong`);
-            //if (data.revealed > 0) info.push(`${data.revealed}× revealed`);
-            return `${key} — ${label}${info.length ? ` (${info.join(', ')})` : ''}`;
+            return label;
         });
-    const getRidOfBrackets = (str) => str.replace(/[\[\]\(\)]/g, ""); // Remove () and []
+
+    // Remove brackets and duplicates
+    const getRidOfBrackets = str => str.replace(/[\[\]\(\)]/g, "");
     const practiceList = [...new Set(allPlaceholders.map(getRidOfBrackets))];
-    // render summary box
+
+    // Render summary box
     const summaryEl = document.getElementById('summaryBox');
     summaryEl.style.display = 'block';
     summaryEl.innerHTML = `
@@ -510,6 +514,7 @@ function showSummary() {
         </p>
     `;
 }
+
 
 // small utility to escape HTML in list items
 function escapeHtml(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }

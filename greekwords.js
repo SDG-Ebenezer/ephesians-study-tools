@@ -443,7 +443,9 @@ function resetAll() {
     document.getElementById('summaryBox').style.display = 'none';
     document.getElementById('summaryBox').innerHTML = '';
 }
-
+function capitalizeFirstLetter(str) {
+  return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+}
 // build summary: counts and list of words to practice (duplicates combined)
 function showSummary() {
     const inputs = Array.from(document.querySelectorAll('input.greek'));
@@ -478,7 +480,7 @@ function showSummary() {
         .filter(([key, data]) => data.revealed > 0 || data.incorrect > 0)
         .sort((a,b) => b[1].attempts - a[1].attempts)
         .map(([key, data]) => {
-            const placeholders = Array.from(data.placeholders);
+            const placeholders = Array.from(capitalizeFirstLetter(data.placeholders));
             const label = placeholders.join(', ') || key;
             const info = [];
             //if (data.incorrect > 0) info.push(`${data.incorrect}× wrong`);

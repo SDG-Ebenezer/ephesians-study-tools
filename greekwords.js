@@ -477,6 +477,7 @@ function showSummary() {
         else if (state === 'incorrect') { incorrect++; wordStats[key].incorrect++; }
         else empty++;
     });
+    const getRidOfBrackets = (str) => str.replace(/[\[\]\(\)]/g, "");
 
     // Build combined practice list (one entry per unique word needing practice)
     const allPlaceholders = Object.entries(wordStats)
@@ -484,14 +485,15 @@ function showSummary() {
         .sort((a, b) => b[1].attempts - a[1].attempts)
         .map(([key, data]) => {
             // Capitalize each placeholder properly
-            const placeholders = Array.from(data.placeholders).map(ph => capitalizeFirstLetter(ph));
-            const label = placeholders.join(', ') || key;
-            return label;
+            const placeholders = Array.from(data.placeholders).map(ph => getRidOfBrackets(capitalizeFirstLetter(ph)));
+            const label = [...new Set(placeholders)].join(', ') || key;
+            
+            return `${key} - ${label}`
         });
 
     // Remove brackets and duplicates
-    const getRidOfBrackets = str => str.replace(/[\[\]\(\)]/g, "");
-    const practiceList = [...new Set(allPlaceholders.map(getRidOfBrackets))];
+    
+    const practiceList = [...new Set(allPlaceholders)];
 
     // Render summary box
     const summaryEl = document.getElementById('summaryBox');

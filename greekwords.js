@@ -476,7 +476,7 @@ function showSummary() {
     });
 
     // Build combined practice list (one entry per unique word needing practice)
-    const practiceList = Object.entries(wordStats)
+    const array = Object.entries(wordStats)
         .filter(([key, data]) => data.revealed > 0 || data.incorrect > 0)
         .sort((a,b) => b[1].attempts - a[1].attempts)
         .map(([key, data]) => {
@@ -487,7 +487,8 @@ function showSummary() {
             //if (data.revealed > 0) info.push(`${data.revealed}× revealed`);
             return `${key} — ${label}${info.length ? ` (${info.join(', ')})` : ''}`;
         });
-
+    const normalize = (str) => str.replace(/[\[\]\(\)]/g, ""); // Remove () and []
+    const practiceList = [...new Set(array.map(normalize))];
     // render summary box
     const summaryEl = document.getElementById('summaryBox');
     summaryEl.style.display = 'block';

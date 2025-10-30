@@ -6,7 +6,7 @@ const revealedFlags = {}; // revealed[instanceId] = true/false
 const askedReveal = {};   // whether we've already asked per-instance
 const hintsGiven = {};    // hintsGiven[instanceId] = number of characters revealed as hints
 
-let sessionActive = true;
+var sessionActive = true;
 
 function getRandomId(prefix='id'){ return prefix + '_' + Math.random().toString(36).slice(2) + '_' + Math.random().toString(36).slice(2,8); }
 
@@ -387,6 +387,7 @@ function focusNextInput(from) {
 }
 
 function checkAnswers() {
+    sessionActive = true
     try {
         console.log('checkAnswers called');
         const inputs = Array.from(document.querySelectorAll('input.greek'));
@@ -499,7 +500,7 @@ function showSummary() {
     //
     sessionActive = false;
 
-    
+
     const inputs = Array.from(document.querySelectorAll('input.greek'));
     const total = inputs.length;
     let correct = 0, revealed = 0, incorrect = 0, empty = 0;
@@ -772,6 +773,7 @@ inputs.forEach(input => {
 
 
 window.addEventListener("beforeunload", function (e) {
+    console.log("Can NOT leave? ", sessionActive)
     if (!sessionActive) return; // no warning if done/reset
     const hasUnfinishedInputs = Array.from(document.querySelectorAll('input.greek'))
         .some(inp => inp.value && !inp.classList.contains('correct'));

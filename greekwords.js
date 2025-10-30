@@ -50,6 +50,13 @@ function init() {
     const btnSummary = document.getElementById('summary');
     if (btnSummary) btnSummary.addEventListener('click', showSummary);
 
+    const btnRetry = document.getElementById('retry');
+    if (btnRetry) btnRetry.addEventListener('click', () => {
+        showConfirm("Retry only the wrong answers?", "Retry", "Cancel").then(ok => {
+            if (ok) retryWrongAnswers();
+        });
+    });
+
     // per-input: grade on blur and also detect Enter to run check. Attach to #passage if present
     const passage = document.getElementById('passage');
     if (passage) {
@@ -390,6 +397,35 @@ function checkAnswers() {
     } catch (err) {
         console.error('Error in checkAnswers:', err);
     }
+}
+
+function retryWrongAnswers() {
+    const inputs = Array.from(document.querySelectorAll('input.greek'));
+    inputs.forEach(inp => {
+        if (inp.classList.contains('incorrect') || inp.classList.contains('revealed')) {
+            // Reset wrong answers only
+            inp.value = '';
+            inp.classList.remove('incorrect', 'revealed', 'hint');
+            inp.removeAttribute('readonly');
+            const inst = inp.dataset.instance;
+            if (inst) {
+                attempts[inst] = 0;
+                revealedFlags[inst] = false;
+                askedReveal[inst] = false;
+                hintsGiven[inst] = 0;
+            }
+            try { setInputWidthToFit(inp); } catch (e) {}
+        }
+    });
+
+    // Reset the score since only correct ones are preserved
+    const correctCount = inputs.filter(i => i.classList.contains('correct')).length;
+    const total = inputs.length;
+    const scoreEl = document.getElementById('score');
+    if (scoreEl) scoreEl.textContent = `Score: ${correctCount} / ${total}`;
+
+    // Optional: confirmation message
+    alert("Wrong answers cleared. You can retry them now!");
 }
 
 function revealSingle(inp, setReadonly = true) {

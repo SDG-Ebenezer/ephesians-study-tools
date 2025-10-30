@@ -131,14 +131,22 @@ function init() {
     // enable autosize behavior
     enableAutosize();
 
-    // Warn before closing the page during an active session
+    document.addEventListener('input', (e) => {
+        if (e.target.classList.contains('greek')) {
+            sessionActive = true;
+        }
+    });
+
     window.addEventListener('beforeunload', function (e) {
-        if (sessionActive) {
-            this.alert("Closing? Your progress will not be saved.")
-            // Standard way to trigger a confirmation dialog in browsers
+        const inputs = Array.from(document.querySelectorAll('input.greek'));
+        const hasUnfinishedInputs = inputs.some(inp =>
+            inp.value && !inp.classList.contains('correct')
+        );
+
+        if (sessionActive && hasUnfinishedInputs) {
             e.preventDefault();
-            e.returnValue = ''; // Required for Chrome
-            return ''; // For older browsers
+            e.returnValue = "You have unsaved progress. Are you sure you want to leave?";
+            return e.returnValue;
         }
     });
 }

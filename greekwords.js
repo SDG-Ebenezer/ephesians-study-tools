@@ -127,6 +127,8 @@ function init() {
 
     // enable autosize behavior
     enableAutosize();
+
+    
 }
 
 // Create popup containers (once) used by confirm dialogs and context menus
@@ -761,3 +763,15 @@ inputs.forEach(input => {
 
 // enable on DOMContentLoaded
 window.addEventListener('DOMContentLoaded', () => enableAutosize());
+
+window.addEventListener("beforeunload", function (e) {
+    // Check if there’s an active session worth saving
+    const hasUnfinishedInputs = Array.from(document.querySelectorAll('input.greek'))
+        .some(inp => inp.value && !inp.classList.contains('correct'));
+
+    if (hasUnfinishedInputs) {
+        e.preventDefault();
+        e.returnValue = "You have an unfinished quiz. Are you sure you want to leave?";
+        return e.returnValue; // For older browsers
+    }
+});

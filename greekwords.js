@@ -131,7 +131,16 @@ function init() {
     // enable autosize behavior
     enableAutosize();
 
-    
+    // Warn before closing the page during an active session
+    window.addEventListener('beforeunload', function (e) {
+        if (sessionActive) {
+            this.alert("Closing? Your progress will not be saved.")
+            // Standard way to trigger a confirmation dialog in browsers
+            e.preventDefault();
+            e.returnValue = ''; // Required for Chrome
+            return ''; // For older browsers
+        }
+    });
 }
 
 // Create popup containers (once) used by confirm dialogs and context menus
@@ -769,19 +778,6 @@ inputs.forEach(input => {
         }
         if (inst && hoverLastPos[inst]) delete hoverLastPos[inst];
     });
-});
-
-
-window.addEventListener("beforeunload", function (e) {
-    console.log("Can NOT leave? ", sessionActive)
-    if (!sessionActive) return; // no warning if done/reset
-    const hasUnfinishedInputs = Array.from(document.querySelectorAll('input.greek'))
-        .some(inp => inp.value && !inp.classList.contains('correct'));
-    if (hasUnfinishedInputs) {
-        e.preventDefault();
-        e.returnValue = "";
-        return e.returnValue;
-    }
 });
 
 // enable on DOMContentLoaded

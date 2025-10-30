@@ -5,6 +5,9 @@ const attempts = {};      // attempts[instanceId] = number
 const revealedFlags = {}; // revealed[instanceId] = true/false
 const askedReveal = {};   // whether we've already asked per-instance
 const hintsGiven = {};    // hintsGiven[instanceId] = number of characters revealed as hints
+
+let sessionActive = true;
+
 function getRandomId(prefix='id'){ return prefix + '_' + Math.random().toString(36).slice(2) + '_' + Math.random().toString(36).slice(2,8); }
 
 // helpers
@@ -464,6 +467,10 @@ function revealAll() {
 }
 
 function resetAll() {
+    //
+    sessionActive = false;
+
+    //    
     const inputs = Array.from(document.querySelectorAll('input.greek'));
     inputs.forEach(inp => {
     inp.value = "";
@@ -489,6 +496,10 @@ function capitalizeFirstLetter(str) {
 
 // Build summary: counts and list of words to practice (duplicates combined)
 function showSummary() {
+    //
+    sessionActive = false;
+
+    
     const inputs = Array.from(document.querySelectorAll('input.greek'));
     const total = inputs.length;
     let correct = 0, revealed = 0, incorrect = 0, empty = 0;
@@ -760,18 +771,16 @@ inputs.forEach(input => {
 });
 
 
+window.addEventListener("beforeunload", function (e) {
+    if (!sessionActive) return; // no warning if done/reset
+    const hasUnfinishedInputs = Array.from(document.querySelectorAll('input.greek'))
+        .some(inp => inp.value && !inp.classList.contains('correct'));
+    if (hasUnfinishedInputs) {
+        e.preventDefault();
+        e.returnValue = "";
+        return e.returnValue;
+    }
+});
 
 // enable on DOMContentLoaded
 window.addEventListener('DOMContentLoaded', () => enableAutosize());
-
-window.addEventListener("beforeunload", function (e) {
-    // Check if there’s an active session worth saving
-    const hasUnfinishedInputs = Array.from(document.querySelectorAll('input.greek'))
-        .some(inp => inp.value && !inp.classList.contains('correct'));
-
-    if (hasUnfinishedInputs) {
-        e.preventDefault();
-        e.returnValue = "You have an unfinished quiz. Are you sure you want to leave?";
-        return e.returnValue; // For older browsers
-    }
-});

@@ -451,6 +451,7 @@ function retryWrongAnswers() {
     alert("Wrong answers cleared. You can retry them now!");
 }
 
+/*
 function revealSingle(inp, setReadonly = true) {
     const key = inp.dataset.key;
     const inst = inp.dataset.instance;
@@ -465,8 +466,82 @@ function revealSingle(inp, setReadonly = true) {
     // mark hints as fully given
     hintsGiven[inst] = (key || '').length;
     // resize to fit full value
-    try { setInputWidthToFit(inp); } catch (e) { /* noop */ }
+    try { setInputWidthToFit(inp); } catch (e) { }
     // update score display (revealed does not count as correct)
+    checkAnswers();
+}*/
+async function revealSingle(inp, setReadonly = true) {
+    const key = inp.dataset.key || "";
+    const inst = inp.dataset.instance;
+
+    // Before revealing, require user to type the correct word to proceed
+    const confirmReveal = confirm("Do you want to reveal the answer? You’ll need to type it to confirm.");
+    if (!confirmReveal) return;
+
+    // Create an input prompt overlay to collect user input
+    const userAnswer = await new Promise(resolve => {
+        const overlay = document.createElement("div");
+        Object.assign(overlay.style, {
+            position: "fixed",
+            top: "0",
+            left: "0",
+            width: "100%",
+            height: "100%",
+            background: "rgba(0,0,0,0.4)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: "10001"
+        });
+
+        const box = document.createElement("div");
+        Object.assign(box.style, {
+            background: "white",
+            padding: "20px",
+            borderRadius: "8px",
+            boxShadow: "0 6px 20px rgba(0,0,0,0.3)",
+            fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
+            textAlign: "center"
+        });
+        box.innerHTML = `
+            <div style="margin-bottom:10px;">Type the correct answer to reveal it:</div>
+            <input id="revealCheckInput" type="text" style="padding:6px 10px; width:80%; font-size:16px;"><br>
+            <button id="revealConfirmBtn" style="margin-top:12px; padding:6px 12px; background:#2b76d2; color:white; border:none; border-radius:6px;">Confirm</button>
+            <button id="revealCancelBtn" style="margin-top:12px; margin-left:6px; padding:6px 12px; background:#ccc; border:none; border-radius:6px;">Cancel</button>
+        `;
+        overlay.appendChild(box);
+        document.body.appendChild(overlay);
+
+        box.querySelector("#revealConfirmBtn").onclick = () => {
+            const val = box.querySelector("#revealCheckInput").value.trim().toLowerCase();
+            overlay.remove();
+            resolve(val);
+        };
+        box.querySelector("#revealCancelBtn").onclick = () => {
+            overlay.remove();
+            resolve(null);
+        };
+    });
+
+    if (userAnswer === null) return; // cancelled
+
+    // Normalize and compare typed input
+    const normalizedUser = userAnswer.trim().toLowerCase();
+    const normalizedKey = key.trim().toLowerCase();
+
+    if (normalizedUser !== normalizedKey) {
+        alert("Incorrect. You must type the correct answer to reveal it.");
+        return;
+    }
+
+    // User typed it correctly → reveal
+    inp.value = key;
+    revealedFlags[inst] = true;
+    inp.classList.add("revealed");
+    inp.classList.remove("correct", "incorrect");
+    if (setReadonly) inp.setAttribute("readonly", "readonly");
+    hintsGiven[inst] = key.length;
+    try { setInputWidthToFit(inp); } catch (e) {}
     checkAnswers();
 }
 

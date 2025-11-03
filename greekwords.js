@@ -504,7 +504,8 @@ async function revealSingle(inp, setReadonly = true) {
             textAlign: "center"
         });
         box.innerHTML = `
-            <div style="margin-bottom:10px;">Type the correct answer to reveal it:</div>
+            <div style="margin-bottom:10px;">Type the correct answer to reveal it:
+            <br><div style="margin-bottom:10px;"><b>${key.trim().toLowerCase()}</b></div><br>
             <input id="revealCheckInput" type="text" style="padding:6px 10px; width:80%; font-size:16px;"><br>
             <button id="revealConfirmBtn" style="margin-top:12px; padding:6px 12px; background:#2b76d2; color:white; border:none; border-radius:6px;">Confirm</button>
             <button id="revealCancelBtn" style="margin-top:12px; margin-left:6px; padding:6px 12px; background:#ccc; border:none; border-radius:6px;">Cancel</button>

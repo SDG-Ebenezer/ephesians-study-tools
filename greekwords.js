@@ -471,78 +471,86 @@ function revealSingle(inp, setReadonly = true) {
     checkAnswers();
 }*/
 async function revealSingle(inp, setReadonly = true) {
-    const key = inp.dataset.key || "";
+    const key = inp.dataset.key?.trim() || "";
     const inst = inp.dataset.instance;
 
-    // Before revealing, require user to type the correct word to proceed
-    const confirmReveal = confirm("Do you want to reveal the answer? You’ll need to type it to confirm.");
+    const confirmReveal = confirm("Are you sure you want to reveal the answer?");
     if (!confirmReveal) return;
 
-    // Create an input prompt overlay to collect user input
-    const userAnswer = await new Promise(resolve => {
-        const overlay = document.createElement("div");
-        Object.assign(overlay.style, {
-            position: "fixed",
-            top: "0",
-            left: "0",
-            width: "100%",
-            height: "100%",
-            background: "rgba(0,0,0,0.4)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: "10001"
-        });
-
-        const box = document.createElement("div");
-        Object.assign(box.style, {
-            background: "white",
-            padding: "20px",
-            borderRadius: "8px",
-            boxShadow: "0 6px 20px rgba(0,0,0,0.3)",
-            fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
-            textAlign: "center"
-        });
-        box.innerHTML = `
-            <div style="margin-bottom:10px;">Type the correct answer to reveal it: <b>${key.trim().toLowerCase()}</b><br>
-            <input id="revealCheckInput" type="text" style="padding:6px 10px; width:80%; font-size:16px;"><br>
-            <button id="revealConfirmBtn" style="margin-top:12px; padding:6px 12px; background:#2b76d2; color:white; border:none; border-radius:6px;">Confirm</button>
-            <button id="revealCancelBtn" style="margin-top:12px; margin-left:6px; padding:6px 12px; background:#ccc; border:none; border-radius:6px;">Cancel</button>
-        `;
-        overlay.appendChild(box);
-        document.body.appendChild(overlay);
-
-        box.querySelector("#revealConfirmBtn").onclick = () => {
-            const val = box.querySelector("#revealCheckInput").value.trim().toLowerCase();
-            overlay.remove();
-            resolve(val);
-        };
-        box.querySelector("#revealCancelBtn").onclick = () => {
-            overlay.remove();
-            resolve(null);
-        };
+    // Create overlay
+    const overlay = document.createElement("div");
+    Object.assign(overlay.style, {
+        position: "fixed",
+        top: "0",
+        left: "0",
+        width: "100%",
+        height: "100%",
+        background: "rgba(0,0,0,0.45)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: "10001"
     });
 
-    if (userAnswer === null) return; // cancelled
+    const box = document.createElement("div");
+    Object.assign(box.style, {
+        background: "white",
+        padding: "20px 28px",
+        borderRadius: "8px",
+        boxShadow: "0 6px 18px rgba(0,0,0,0.3)",
+        fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
+        textAlign: "center",
+        maxWidth: "360px"
+    });
 
-    // Normalize and compare typed input
-    const normalizedUser = userAnswer.trim().toLowerCase();
-    const normalizedKey = key.trim().toLowerCase();
+    box.innerHTML = `
+        <div style="margin-bottom:10px; font-size:17px; font-weight:500;">Copy the answer exactly to proceed:</div>
+        <div style="background:#f3f3f3; padding:8px; border-radius:4px; margin-bottom:12px; user-select:all;">
+            <b style="letter-spacing:0.5px;">${key}</b>
+        </div>
+        <input id="copyConfirmInput" type="text" autocomplete="off" autocorrect="off" spellcheck="false"
+            style="padding:8px 10px; width:90%; font-size:16px; border:1px solid #ccc; border-radius:6px; text-align:center;">
+        <div id="copyStatus" style="margin-top:10px; color:#888; font-size:14px;">Type the word exactly.</div>
+    `;
 
-    if (normalizedUser !== normalizedKey) {
-        alert("Incorrect. You must type the correct answer to reveal it.");
-        return;
-    }
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
 
-    // User typed it correctly → reveal
-    inp.value = key;
-    revealedFlags[inst] = true;
-    inp.classList.add("revealed");
-    inp.classList.remove("correct", "incorrect");
-    if (setReadonly) inp.setAttribute("readonly", "readonly");
-    hintsGiven[inst] = key.length;
-    try { setInputWidthToFit(inp); } catch (e) {}
-    checkAnswers();
+    const inputField = box.querySelector("#copyConfirmInput");
+    const status = box.querySelector("#copyStatus");
+
+    // Focus for immediate typing
+    inputField.focus();
+
+    return new Promise(resolve => {
+        const checkInput = () => {
+            const userTyped = inputField.value.trim();
+            if (userTyped === key) {
+                status.textContent = "✅ Correct!";
+                status.style.color = "green";
+
+                setTimeout(() => {
+                    overlay.remove();
+                    // Reveal in main input as "wrong" (user gave up)
+                    inp.value = key;
+                    revealedFlags[inst] = true;
+                    inp.classList.add("revealed", "incorrect");
+                    inp.classList.remove("correct");
+                    if (setReadonly) inp.setAttribute("readonly", "readonly");
+                    hintsGiven[inst] = key.length;
+                    try { setInputWidthToFit(inp); } catch (e) {}
+                    checkAnswers();
+                    resolve();
+                }, 600);
+            } else {
+                status.textContent = "❌ Incorrect. Copy it exactly.";
+                status.style.color = "red";
+            }
+        };
+
+        // Lock the user in until correct
+        inputField.addEventListener("input", checkInput);
+    });
 }
 
 function revealAll() {

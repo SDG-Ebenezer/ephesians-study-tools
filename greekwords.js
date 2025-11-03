@@ -525,7 +525,7 @@ async function revealSingle(inp, setReadonly = true) {
     return new Promise(resolve => {
         const checkInput = () => {
             const userTyped = inputField.value.trim();
-            if (userTyped.toLowerCase() === key) {
+            if (normalize(userTyped) === normalize(key)) {
                 status.textContent = "✅ Correct!";
                 status.style.color = "green";
 

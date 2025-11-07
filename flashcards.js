@@ -198,19 +198,22 @@ function disableNextVerseBtn(){
       };
     }
   }
+  
+  function performFlashBtnAction(){
+    if(!toggleInFlashcards){
+        enterFlashMode()        
+        flashBtn.style.backgroundColor = "#aa0c0cff"
+        flashBtn.style.color = "#d6d6d6ff"
+        toggleInFlashcards = true
+    } else{
+        exitFlashMode()
+        resetFlashBtn()
+        toggleInFlashcards = false
+    }
+  }
 
   // --- BUTTON HANDLERS ---
-  if(!toggleInFlashcards){
-    flashBtn.addEventListener("click", enterFlashMode);
-    
-    flashBtn.style.backgroundColor = "#aa0c0cff"
-    flashBtn.style.color = "#d6d6d6ff"
-    toggleInFlashcards = true
-  } else{
-    flashBtn.addEventListener("click", exitFlashMode);
-    resetFlashBtn()
-    toggleInFlashcards = false
-  }
+  flashBtn.addEventListener("click", performFlashBtnAction)
   flashUI.querySelector("#revealVerse").addEventListener("click", revealCurrentVerse);
   flashUI.querySelector("#nextVerse").addEventListener("click", nextVerse);
   //flashUI.querySelector("#exitFlashcards").addEventListener("click", exitFlashMode);

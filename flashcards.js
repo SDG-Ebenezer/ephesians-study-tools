@@ -11,12 +11,12 @@ document.addEventListener("DOMContentLoaded", () => {
   const controls = document.querySelector(".controls");
   const flashBtn = document.createElement("button");
   flashBtn.id = "flashcardsBtn";
-  flashBtn.textContent = "Flashcards";
   controls.appendChild(flashBtn);
 
   function resetFlashBtn(){    
-    flashBtn.style.backgroundColor = "#0f5a00ff"
+    flashBtn.style.backgroundColor = "#1f830bff"
     flashBtn.style.color = "#d6d6d6ff"
+    flashBtn.textContent = "Flashcard Mode" 
   }
   resetFlashBtn()
 
@@ -201,7 +201,8 @@ function disableNextVerseBtn(){
   
   function performFlashBtnAction(){
     if(!toggleInFlashcards){
-        enterFlashMode()        
+        enterFlashMode()       
+        flashBtn.textContent = "Exit Flashcards" 
         flashBtn.style.backgroundColor = "#aa0c0cff"
         flashBtn.style.color = "#d6d6d6ff"
         toggleInFlashcards = true

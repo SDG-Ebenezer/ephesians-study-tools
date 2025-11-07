@@ -448,7 +448,7 @@ function retryWrongAnswers() {
     if (scoreEl) scoreEl.textContent = `Score: ${correctCount} / ${total}`;
 
     // Optional: confirmation message
-    alert("Wrong answers cleared. You can retry them now!");
+    //alert("Wrong answers cleared. You can retry them now!");
 }
 
 /*

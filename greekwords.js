@@ -347,7 +347,7 @@ function gradeSingleInput(inp, options = {}) {
         // small asynchronous prompt so UI updates (e.g., red border) before confirm
         setTimeout(()=> {
         //const want = confirm(`You've tried "${inp.placeholder}" (${attempts[inst]} wrong attempts). Reveal the answer for this word?`);
-        const want = confirm("Do you want to reveal the answer for this word?");
+        const want = true//confirm("Do you want to reveal the answer for this word?");
         if (want) {
             revealSingle(inp, true);
         } else {
@@ -470,11 +470,11 @@ function revealSingle(inp, setReadonly = true) {
     // update score display (revealed does not count as correct)
     checkAnswers();
 }*/
-async function revealSingle(inp, setReadonly = true) {
+async function revealSingle(inp, setReadonly = true, askConfirm = true) {
     const key = inp.dataset.key?.trim() || "";
     const inst = inp.dataset.instance;
 
-    const confirmReveal = confirm("Are you sure you want to reveal the answer?");
+    const confirmReveal = askConfirm?confirm("Are you sure you want to reveal the answer?"):true;
     if (!confirmReveal) return;
 
     // Create overlay
@@ -557,7 +557,7 @@ function revealAll() {
     const inputs = Array.from(document.querySelectorAll('input.greek'));
     inputs.forEach(inp => {
         if(!inp.classList.contains('correct') && !inp.classList.contains('incorrect')){
-            revealSingle(inp, true);
+            revealSingle(inp, true, false);
         } else {
             // also ensure corrected inputs are resized to their full expected value if they are revealed later
             try { setInputWidthToFit(inp); } catch (e) {}

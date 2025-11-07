@@ -1,10 +1,10 @@
-// flashcards.js — random verse flashcard testing for Greek words
+// flashcards.js — flashcard testing mode for verses
 
 document.addEventListener("DOMContentLoaded", () => {
   const passage = document.getElementById("passage");
   if (!passage) return;
 
-  // Add button
+  // Add Flashcards button
   const controls = document.querySelector(".controls");
   const flashBtn = document.createElement("button");
   flashBtn.id = "flashcardsBtn";
@@ -30,16 +30,21 @@ document.addEventListener("DOMContentLoaded", () => {
 
   let shuffled = [];
   let current = 0;
-  const results = []; // { verseNum, correct }
+  const results = [];
 
   function shuffle(array) {
-    return array.sort(() => Math.random() - 0.5);
+    const a = array.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
   }
 
   function enterFlashMode() {
     passage.style.display = "none";
     flashUI.style.display = "block";
-    shuffled = shuffle(verses.slice());
+    shuffled = shuffle(verses);
     current = 0;
     results.length = 0;
     showVerse();
@@ -59,32 +64,51 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     const container = document.getElementById("flashcardContainer");
     container.innerHTML = verse.outerHTML;
+
+    // reset inputs
     container.querySelectorAll("input.greek").forEach(inp => {
       inp.value = "";
-      inp.classList.remove("correct","incorrect","revealed");
+      inp.classList.remove("correct","incorrect","revealed","hint");
       inp.removeAttribute("readonly");
     });
+
     document.getElementById("flashProgress").textContent =
-      `Verse ${verse.querySelector("strong")?.textContent || '?'} of ${verses.length} (${current+1}/${verses.length})`;
+      `Verse ${verse.querySelector("strong")?.textContent || '?'} (${current+1}/${verses.length})`;
   }
 
+  // --- CORE CHECK FUNCTION (no annoying confirm boxes)
   function checkCurrentVerse() {
     const container = document.getElementById("flashcardContainer");
-    const inputs = container.querySelectorAll("input.greek");
+    const inputs = Array.from(container.querySelectorAll("input.greek"));
     let allCorrect = true;
+
     inputs.forEach(inp => {
+      // temporarily suppress per-word reveal prompts
+      const inst = inp.dataset.instance;
+      if (inst && typeof askedReveal !== "undefined") askedReveal[inst] = true;
       const res = gradeSingleInput(inp);
       if (res !== "correct") allCorrect = false;
     });
+
     const verseNum = container.querySelector("strong")?.textContent || "?";
     results.push({ verseNum, correct: allCorrect });
-    alert(allCorrect ? `Verse ${verseNum}: ✅ Correct` : `Verse ${verseNum}: ❌ Some incorrect`);
+
+    // restore askedReveal to false so normal mode still works later
+    inputs.forEach(inp => {
+      const inst = inp.dataset.instance;
+      if (inst && typeof askedReveal !== "undefined") askedReveal[inst] = false;
+    });
+
+    alert(allCorrect ? `Verse ${verseNum}: ✅ All correct!` : `Verse ${verseNum}: ❌ Some incorrect`);
   }
 
+  // --- REVEAL CURRENT VERSE (no prompts)
   function revealCurrentVerse() {
     const container = document.getElementById("flashcardContainer");
     const inputs = container.querySelectorAll("input.greek");
-    inputs.forEach(inp => revealSingle(inp, true));
+    inputs.forEach(inp => {
+      revealSingle(inp, true); // immediate reveal
+    });
   }
 
   function nextVerse() {
@@ -98,7 +122,7 @@ document.addEventListener("DOMContentLoaded", () => {
     summary.style.display = "block";
     const wrong = results.filter(r => !r.correct);
     if (!wrong.length) {
-      summary.innerHTML = `<h3>All correct! 🎉</h3>
+      summary.innerHTML = `<h3>All verses correct! 🎉</h3>
         <button id="exitAfterSummary">Exit Flashcards</button>`;
     } else {
       summary.innerHTML = `
@@ -125,7 +149,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // Button handlers
+  // --- BUTTON HANDLERS ---
   flashBtn.addEventListener("click", enterFlashMode);
   flashUI.querySelector("#checkVerse").addEventListener("click", checkCurrentVerse);
   flashUI.querySelector("#revealVerse").addEventListener("click", revealCurrentVerse);

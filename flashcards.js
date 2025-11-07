@@ -16,7 +16,7 @@ document.addEventListener("DOMContentLoaded", () => {
   function resetFlashBtn(){    
     flashBtn.style.backgroundColor = "#1f830bff"
     flashBtn.style.color = "#d6d6d6ff"
-    flashBtn.textContent = "Flashcard Mode" 
+    flashBtn.innerHTML = "Flashcard Mode" 
   }
   resetFlashBtn()
 
@@ -202,7 +202,7 @@ function disableNextVerseBtn(){
   function performFlashBtnAction(){
     if(!toggleInFlashcards){
         enterFlashMode()       
-        flashBtn.textContent = "Exit Flashcards" 
+        flashBtn.innerHTML = "Exit Flashcards" 
         flashBtn.style.backgroundColor = "#aa0c0cff"
         flashBtn.style.color = "#d6d6d6ff"
         toggleInFlashcards = true

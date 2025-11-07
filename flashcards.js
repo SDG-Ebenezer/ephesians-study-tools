@@ -20,7 +20,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   resetFlashBtn()
 
-  
+
   const verses = Array.from(passage.querySelectorAll("div"));
   const flashUI = document.createElement("div");
   flashUI.id = "flashcardMode";
@@ -200,7 +200,7 @@ function disableNextVerseBtn(){
   }
 
   // --- BUTTON HANDLERS ---
-  if(toggleInFlashcards){
+  if(!toggleInFlashcards){
     flashBtn.addEventListener("click", enterFlashMode);
     
     flashBtn.style.backgroundColor = "#aa0c0cff"

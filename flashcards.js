@@ -1,4 +1,4 @@
-// flashcards.js — flashcard testing mode for verses
+// flashcards.js — verse-based flashcard testing (per-word checking)
 
 document.addEventListener("DOMContentLoaded", () => {
   const passage = document.getElementById("passage");
@@ -18,7 +18,6 @@ document.addEventListener("DOMContentLoaded", () => {
   flashUI.innerHTML = `
     <div id="flashcardContainer" class="verse"></div>
     <div class="flashControls" style="margin-top:1em;">
-      <button id="checkVerse">Check</button>
       <button id="revealVerse">Reveal</button>
       <button id="nextVerse">Next</button>
       <button id="exitFlashcards">Exit Flashcards</button>
@@ -32,6 +31,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let current = 0;
   const results = [];
 
+  // Fisher–Yates shuffle
   function shuffle(array) {
     const a = array.slice();
     for (let i = a.length - 1; i > 0; i--) {
@@ -65,50 +65,70 @@ document.addEventListener("DOMContentLoaded", () => {
     const container = document.getElementById("flashcardContainer");
     container.innerHTML = verse.outerHTML;
 
-    // reset inputs
+    // Reset all inputs
     container.querySelectorAll("input.greek").forEach(inp => {
       inp.value = "";
       inp.classList.remove("correct","incorrect","revealed","hint");
       inp.removeAttribute("readonly");
     });
 
+    const verseNum = verse.querySelector("strong")?.textContent || "?";
     document.getElementById("flashProgress").textContent =
-      `Verse ${verse.querySelector("strong")?.textContent || '?'} (${current+1}/${verses.length})`;
+      `Verse ${verseNum} (${current + 1}/${verses.length})`;
+
+    enableWordChecking(container);
   }
 
-  // --- CORE CHECK FUNCTION (no annoying confirm boxes)
-  function checkCurrentVerse() {
-    const container = document.getElementById("flashcardContainer");
+  function enableWordChecking(container) {
     const inputs = Array.from(container.querySelectorAll("input.greek"));
-    let allCorrect = true;
 
-    inputs.forEach(inp => {
-      // temporarily suppress per-word reveal prompts
-      const inst = inp.dataset.instance;
-      if (inst && typeof askedReveal !== "undefined") askedReveal[inst] = true;
-      const res = gradeSingleInput(inp);
-      if (res !== "correct") allCorrect = false;
+    inputs.forEach((inp, idx) => {
+      inp.addEventListener("keydown", (e) => {
+        // ignore modifier keys
+        if (e.ctrlKey || e.altKey || e.metaKey) return;
+
+        if ([" ", "Tab", "Enter"].includes(e.key)) {
+          e.preventDefault();
+          gradeSingleInput(inp);
+          // move to next word for Space or Tab
+          if ([" ", "Tab"].includes(e.key) && idx < inputs.length - 1) {
+            inputs[idx + 1].focus();
+          }
+          // check if all words graded
+          checkIfVerseDone(inputs);
+        }
+      });
     });
 
-    const verseNum = container.querySelector("strong")?.textContent || "?";
-    results.push({ verseNum, correct: allCorrect });
-
-    // restore askedReveal to false so normal mode still works later
-    inputs.forEach(inp => {
-      const inst = inp.dataset.instance;
-      if (inst && typeof askedReveal !== "undefined") askedReveal[inst] = false;
-    });
-
-    alert(allCorrect ? `Verse ${verseNum}: ✅ All correct!` : `Verse ${verseNum}: ❌ Some incorrect`);
+    // focus the first word at start
+    if (inputs[0]) inputs[0].focus();
   }
 
-  // --- REVEAL CURRENT VERSE (no prompts)
+  function checkIfVerseDone(inputs) {
+    const allDone = inputs.every(inp =>
+      inp.classList.contains("correct") || inp.classList.contains("incorrect")
+    );
+    if (allDone) {
+      const verseNum =
+        document.getElementById("flashcardContainer").querySelector("strong")
+          ?.textContent || "?";
+      results.push({ verseNum, correct: inputs.every(i => i.classList.contains("correct")) });
+      alert(`Verse ${verseNum} complete ✅`);
+    }
+  }
+
+  // --- Reveal all words in current verse (single confirm only)
   function revealCurrentVerse() {
+    const ok = confirm("Reveal all Greek words for this verse?");
+    if (!ok) return;
+
     const container = document.getElementById("flashcardContainer");
     const inputs = container.querySelectorAll("input.greek");
-    inputs.forEach(inp => {
-      revealSingle(inp, true); // immediate reveal
-    });
+    inputs.forEach(inp => revealSingle(inp, true));
+
+    const verseNum = container.querySelector("strong")?.textContent || "?";
+    results.push({ verseNum, correct: false });
+    alert(`Verse ${verseNum} revealed 👀`);
   }
 
   function nextVerse() {
@@ -151,7 +171,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // --- BUTTON HANDLERS ---
   flashBtn.addEventListener("click", enterFlashMode);
-  flashUI.querySelector("#checkVerse").addEventListener("click", checkCurrentVerse);
   flashUI.querySelector("#revealVerse").addEventListener("click", revealCurrentVerse);
   flashUI.querySelector("#nextVerse").addEventListener("click", nextVerse);
   flashUI.querySelector("#exitFlashcards").addEventListener("click", exitFlashMode);

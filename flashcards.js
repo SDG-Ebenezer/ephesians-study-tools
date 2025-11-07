@@ -1,7 +1,7 @@
 // flashcards.js — verse-based flashcard testing (per-word checking)
 var canMoveOn = false
 
-
+var toggleInFlashcards = false
 
 document.addEventListener("DOMContentLoaded", () => {
   const passage = document.getElementById("passage");
@@ -14,6 +14,13 @@ document.addEventListener("DOMContentLoaded", () => {
   flashBtn.textContent = "Flashcards";
   controls.appendChild(flashBtn);
 
+  function resetFlashBtn(){    
+    flashBtn.style.backgroundColor = "#0f5a00ff"
+    flashBtn.style.color = "#d6d6d6ff"
+  }
+  resetFlashBtn()
+
+  
   const verses = Array.from(passage.querySelectorAll("div"));
   const flashUI = document.createElement("div");
   flashUI.id = "flashcardMode";
@@ -23,7 +30,7 @@ document.addEventListener("DOMContentLoaded", () => {
     <div class="flashControls" style="margin-top:1em;">
       <button id="revealVerse">Reveal</button>
       <button id="nextVerse" style="background-color:#eee;color:#111">Next Verse</button>
-      <button id="exitFlashcards">Exit Flashcards</button>
+      <!--<button id="exitFlashcards">Exit Flashcards</button>-->
     </div>
     <div id="flashProgress" style="margin-top:8px;"></div>
     <div id="flashSummary" style="display:none; margin-top:1em;"></div>
@@ -193,8 +200,18 @@ function disableNextVerseBtn(){
   }
 
   // --- BUTTON HANDLERS ---
-  flashBtn.addEventListener("click", enterFlashMode);
+  if(toggleInFlashcards){
+    flashBtn.addEventListener("click", enterFlashMode);
+    
+    flashBtn.style.backgroundColor = "#aa0c0cff"
+    flashBtn.style.color = "#d6d6d6ff"
+    toggleInFlashcards = true
+  } else{
+    flashBtn.addEventListener("click", exitFlashMode);
+    resetFlashBtn()
+    toggleInFlashcards = false
+  }
   flashUI.querySelector("#revealVerse").addEventListener("click", revealCurrentVerse);
   flashUI.querySelector("#nextVerse").addEventListener("click", nextVerse);
-  flashUI.querySelector("#exitFlashcards").addEventListener("click", exitFlashMode);
+  //flashUI.querySelector("#exitFlashcards").addEventListener("click", exitFlashMode);
 });

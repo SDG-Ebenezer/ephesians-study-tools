@@ -1,4 +1,7 @@
 // flashcards.js — verse-based flashcard testing (per-word checking)
+var canMoveOn = false
+
+
 
 document.addEventListener("DOMContentLoaded", () => {
   const passage = document.getElementById("passage");
@@ -19,13 +22,20 @@ document.addEventListener("DOMContentLoaded", () => {
     <div id="flashcardContainer" class="verse"></div>
     <div class="flashControls" style="margin-top:1em;">
       <button id="revealVerse">Reveal</button>
-      <button id="nextVerse">Next</button>
+      <button id="nextVerse" style="background-color:#eee;color:#111">Next Verse</button>
       <button id="exitFlashcards">Exit Flashcards</button>
     </div>
     <div id="flashProgress" style="margin-top:8px;"></div>
     <div id="flashSummary" style="display:none; margin-top:1em;"></div>
   `;
   passage.parentNode.insertBefore(flashUI, passage.nextSibling);
+function disableNextVerseBtn(){
+    var nextVerseBtn = document.getElementById("nextVerse")
+    nextVerseBtn.style.backgroundColor = "#8f8f8fff";
+    nextVerseBtn.style.color = "#555555ff"
+  }
+  disableNextVerseBtn()
+
 
   let shuffled = [];
   let current = 0;
@@ -113,7 +123,12 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById("flashcardContainer").querySelector("strong")
           ?.textContent || "?";
       results.push({ verseNum, correct: inputs.every(i => i.classList.contains("correct")) });
-      alert(`Verse ${verseNum} complete ✅`);
+      //alert(`Verse ${verseNum} complete ✅`);
+      canMoveOn = true
+      
+      var nextVerseBtn = document.getElementById("nextVerse")
+      nextVerseBtn.style.backgroundColor = "#15b5ffff";
+      nextVerseBtn.style.color = "#000000"
     }
   }
 
@@ -128,13 +143,21 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const verseNum = container.querySelector("strong")?.textContent || "?";
     results.push({ verseNum, correct: false });
-    alert(`Verse ${verseNum} revealed 👀`);
+    //alert(`Verse ${verseNum} revealed 👀`);
   }
 
   function nextVerse() {
-    current++;
-    if (current < shuffled.length) showVerse();
-    else showSummary();
+    if(canMoveOn){
+        current++;
+        if (current < shuffled.length) {
+            showVerse();
+            canMoveOn = false
+            disableNextVerseBtn()
+        }
+        else showSummary();
+    } else{
+        alert("Hmmm....looks like you are missing a word...")
+    }
   }
 
   function showSummary() {

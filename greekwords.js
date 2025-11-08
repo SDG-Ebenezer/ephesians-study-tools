@@ -470,94 +470,111 @@ function revealSingle(inp, setReadonly = true) {
     // update score display (revealed does not count as correct)
     checkAnswers();
 }*/
-async function revealSingle(inp, setReadonly = true, askConfirm = true) {
+async function revealSingle(inp, setReadonly = true, askConfirm = true, mustType = true) {
     const key = inp.dataset.key?.trim() || "";
     const inst = inp.dataset.instance;
 
     const confirmReveal = askConfirm?confirm("Are you sure you want to reveal the answer?"):true;
     if (!confirmReveal) return;
+    
+    if(mustType){
+        // Create overlay
+        const overlay = document.createElement("div");
+        Object.assign(overlay.style, {
+            position: "fixed",
+            top: "0",
+            left: "0",
+            width: "100%",
+            height: "100%",
+            background: "rgba(0,0,0,0.45)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: "10001"
+        });
 
-    // Create overlay
-    const overlay = document.createElement("div");
-    Object.assign(overlay.style, {
-        position: "fixed",
-        top: "0",
-        left: "0",
-        width: "100%",
-        height: "100%",
-        background: "rgba(0,0,0,0.45)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: "10001"
-    });
+        const box = document.createElement("div");
+        Object.assign(box.style, {
+            background: "white",
+            padding: "20px 28px",
+            borderRadius: "8px",
+            boxShadow: "0 6px 18px rgba(0,0,0,0.3)",
+            fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
+            textAlign: "center",
+            maxWidth: "360px"
+        });
 
-    const box = document.createElement("div");
-    Object.assign(box.style, {
-        background: "white",
-        padding: "20px 28px",
-        borderRadius: "8px",
-        boxShadow: "0 6px 18px rgba(0,0,0,0.3)",
-        fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
-        textAlign: "center",
-        maxWidth: "360px"
-    });
+        box.innerHTML = `
+            <div style="margin-bottom:10px; font-size:17px; font-weight:500;">Copy the answer exactly to proceed:</div>
+            <div style="background:#f3f3f3; padding:8px; border-radius:4px; margin-bottom:12px; user-select:all;">
+                <b style="letter-spacing:0.5px;">${key}</b>
+            </div>
+            <input id="copyConfirmInput" type="text" autocomplete="off" autocorrect="off" spellcheck="false"
+                style="padding:8px 10px; width:90%; font-size:16px; border:1px solid #ccc; border-radius:6px; text-align:center;">
+            <div id="copyStatus" style="margin-top:10px; color:#888; font-size:14px;">Type the word exactly.</div>
+        `;
 
-    box.innerHTML = `
-        <div style="margin-bottom:10px; font-size:17px; font-weight:500;">Copy the answer exactly to proceed:</div>
-        <div style="background:#f3f3f3; padding:8px; border-radius:4px; margin-bottom:12px; user-select:all;">
-            <b style="letter-spacing:0.5px;">${key}</b>
-        </div>
-        <input id="copyConfirmInput" type="text" autocomplete="off" autocorrect="off" spellcheck="false"
-            style="padding:8px 10px; width:90%; font-size:16px; border:1px solid #ccc; border-radius:6px; text-align:center;">
-        <div id="copyStatus" style="margin-top:10px; color:#888; font-size:14px;">Type the word exactly.</div>
-    `;
+        overlay.appendChild(box);
+        document.body.appendChild(overlay);
 
-    overlay.appendChild(box);
-    document.body.appendChild(overlay);
+        const inputField = box.querySelector("#copyConfirmInput");
+        const status = box.querySelector("#copyStatus");
 
-    const inputField = box.querySelector("#copyConfirmInput");
-    const status = box.querySelector("#copyStatus");
+        // Focus for immediate typing
+        inputField.focus();
 
-    // Focus for immediate typing
-    inputField.focus();
+        return new Promise(resolve => {
+            const checkInput = () => {
+                const userTyped = inputField.value.trim();
+                if (normalize(userTyped) === normalize(key)) {
+                    status.textContent = "✅ Correct!";
+                    status.style.color = "green";
 
-    return new Promise(resolve => {
-        const checkInput = () => {
-            const userTyped = inputField.value.trim();
-            if (normalize(userTyped) === normalize(key)) {
-                status.textContent = "✅ Correct!";
-                status.style.color = "green";
+                    setTimeout(() => {
+                        overlay.remove();
+                        // Reveal in main input as "wrong" (user gave up)
+                        inp.value = key;
+                        revealedFlags[inst] = true;
+                        inp.classList.add("revealed", "incorrect");
+                        inp.classList.remove("correct");
+                        if (setReadonly) inp.setAttribute("readonly", "readonly");
+                        hintsGiven[inst] = key.length;
+                        try { setInputWidthToFit(inp); } catch (e) {}
+                        checkAnswers();
+                        resolve();
+                    }, 600);
+                } else {
+                    status.textContent = "❌ Incorrect. Copy it exactly.";
+                    status.style.color = "red";
+                }
+            };
 
-                setTimeout(() => {
-                    overlay.remove();
-                    // Reveal in main input as "wrong" (user gave up)
-                    inp.value = key;
-                    revealedFlags[inst] = true;
-                    inp.classList.add("revealed", "incorrect");
-                    inp.classList.remove("correct");
-                    if (setReadonly) inp.setAttribute("readonly", "readonly");
-                    hintsGiven[inst] = key.length;
-                    try { setInputWidthToFit(inp); } catch (e) {}
-                    checkAnswers();
-                    resolve();
-                }, 600);
-            } else {
-                status.textContent = "❌ Incorrect. Copy it exactly.";
-                status.style.color = "red";
-            }
-        };
-
-        // Lock the user in until correct
-        inputField.addEventListener("input", checkInput);
-    });
+            // Lock the user in until correct
+            inputField.addEventListener("input", checkInput);
+        });
+    } else{
+        const val = key || "";
+        inp.value = val;
+        revealedFlags[inst] = true;
+        inp.classList.add("revealed");
+        inp.classList.remove("correct","incorrect");
+        if (setReadonly) {
+        inp.setAttribute('readonly','readonly');
+        }
+        // mark hints as fully given
+        hintsGiven[inst] = (key || '').length;
+        // resize to fit full value
+        try { setInputWidthToFit(inp); } catch (e) { }
+        // update score display (revealed does not count as correct)
+        checkAnswers();
+    }
 }
 
 function revealAll() {
     const inputs = Array.from(document.querySelectorAll('input.greek'));
     inputs.forEach(inp => {
         if(!inp.classList.contains('correct') && !inp.classList.contains('incorrect')){
-            revealSingle(inp, true, false);
+            revealSingle(inp, true, false, false);
         } else {
             // also ensure corrected inputs are resized to their full expected value if they are revealed later
             try { setInputWidthToFit(inp); } catch (e) {}

@@ -124,7 +124,7 @@ function disableNextVerseBtn(){
  function checkIfVerseDone(inputs) {
   const allDone = inputs.every(inp =>
     inp.classList.contains("correct") ||
-    inp.classList.contains("incorrect") ||
+    //inp.classList.contains("incorrect") ||
     inp.classList.contains("revealed")
   );
 

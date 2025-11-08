@@ -71,6 +71,9 @@ function disableNextVerseBtn(){
     flashUI.style.display = "none";
     passage.style.display = "block";
     document.getElementById("flashSummary").style.display = "none";
+    
+    resetFlashBtn()
+    toggleInFlashcards = false
   }
 
   function showVerse() {
@@ -223,8 +226,6 @@ function revealCurrentVerse() {
         toggleInFlashcards = true
     } else{
         exitFlashMode()
-        resetFlashBtn()
-        toggleInFlashcards = false
     }
   }
 

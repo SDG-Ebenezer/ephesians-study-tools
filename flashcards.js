@@ -121,37 +121,49 @@ function disableNextVerseBtn(){
     if (inputs[0]) inputs[0].focus();
   }
 
-  function checkIfVerseDone(inputs) {
-    const allDone = inputs.every(inp =>
-      inp.classList.contains("correct") || inp.classList.contains("incorrect")
-    );
-    if (allDone) {
-      const verseNum =
-        document.getElementById("flashcardContainer").querySelector("strong")
-          ?.textContent || "?";
-      results.push({ verseNum, correct: inputs.every(i => i.classList.contains("correct")) });
-      //alert(`Verse ${verseNum} complete ✅`);
-      canMoveOn = true
-      
-      var nextVerseBtn = document.getElementById("nextVerse")
-      nextVerseBtn.style.backgroundColor = "#15b5ffff";
-      nextVerseBtn.style.color = "#000000"
-    }
+ function checkIfVerseDone(inputs) {
+  const allDone = inputs.every(inp =>
+    inp.classList.contains("correct") ||
+    inp.classList.contains("incorrect") ||
+    inp.classList.contains("revealed")
+  );
+
+  if (allDone) {
+    const verseNum =
+      document.getElementById("flashcardContainer").querySelector("strong")?.textContent || "?";
+    results.push({
+      verseNum,
+      correct: inputs.every(i => i.classList.contains("correct"))
+    });
+    canMoveOn = true;
+    var nextVerseBtn = document.getElementById("nextVerse");
+    nextVerseBtn.style.backgroundColor = "#15b5ffff";
+    nextVerseBtn.style.color = "#000000";
   }
+}
+
 
   // --- Reveal all words in current verse (single confirm only)
-  function revealCurrentVerse() {
-    const ok = confirm("Reveal all Greek words for this verse?");
-    if (!ok) return;
+function revealCurrentVerse() {
+  const container = document.getElementById("flashcardContainer");
+  const inputs = container.querySelectorAll("input.greek");
 
-    const container = document.getElementById("flashcardContainer");
-    const inputs = container.querySelectorAll("input.greek");
-    inputs.forEach(inp => revealSingle(inp, true));
+  // Only reveal blanks — no confirm needed
+  let anyBlank = false;
+  inputs.forEach(inp => {
+    if (!inp.value.trim()) {
+      revealSingle(inp, true, false);
+      anyBlank = true;
+    }
+  });
 
-    const verseNum = container.querySelector("strong")?.textContent || "?";
-    results.push({ verseNum, correct: false });
-    //alert(`Verse ${verseNum} revealed 👀`);
+  if (!anyBlank) {
+    alert("No blank words to reveal.");
+  } else {
+    checkIfVerseDone(inputs);
   }
+}
+
 
   function nextVerse() {
     if(canMoveOn){
@@ -167,37 +179,40 @@ function disableNextVerseBtn(){
     }
   }
 
-  function showSummary() {
-    const summary = document.getElementById("flashSummary");
-    summary.style.display = "block";
-    const wrong = results.filter(r => !r.correct);
-    if (!wrong.length) {
-      summary.innerHTML = `<h3>All verses correct! 🎉</h3>
-        <button id="exitAfterSummary">Exit Flashcards</button>`;
-    } else {
-      summary.innerHTML = `
-        <h3>Review Needed</h3>
-        <p>You missed ${wrong.length} verse${wrong.length>1?'s':''}: ${wrong.map(r=>r.verseNum).join(', ')}</p>
-        <button id="retestWrong">Retest Missed</button>
-        <button id="exitAfterSummary">Exit Flashcards</button>`;
-    }
-    document.getElementById("flashcardContainer").innerHTML = "";
-    document.getElementById("flashProgress").textContent = "";
+ function showSummary() {
+  const summary = document.getElementById("flashSummary");
+  summary.style.display = "block";
 
-    document.getElementById("exitAfterSummary").onclick = exitFlashMode;
-    const retest = document.getElementById("retestWrong");
-    if (retest) {
-      retest.onclick = () => {
-        shuffled = verses.filter(v => {
-          const num = v.querySelector("strong")?.textContent || "?";
-          return wrong.some(r => r.verseNum === num);
-        });
-        current = 0;
-        results.length = 0;
-        showVerse();
-      };
-    }
+  // Collect all wrong words
+  const allWrongWords = new Set();
+  results.forEach(r => {
+    const verse = verses.find(v => (v.querySelector("strong")?.textContent || "?") === r.verseNum);
+    if (!verse) return;
+    verse.querySelectorAll("input.greek.incorrect, input.greek.revealed").forEach(inp => {
+      if (inp.dataset?.key) allWrongWords.add(inp.dataset.key.trim());
+      else allWrongWords.add(inp.value.trim() || inp.placeholder || "unknown");
+    });
+  });
+
+  const wrongWords = [...allWrongWords].filter(w => w.length > 0);
+
+  if (!wrongWords.length) {
+    summary.innerHTML = `<h3>All words correct! 🎉</h3>
+      <button id="exitAfterSummary">Exit Flashcards</button>`;
+  } else {
+    summary.innerHTML = `
+      <h3>Review Needed</h3>
+      <p>You missed ${wrongWords.length} unique word${wrongWords.length > 1 ? "s" : ""}:</p>
+      <div style="margin-top:8px; font-weight:bold;">${wrongWords.join(", ")}</div>
+      <button id="exitAfterSummary">Exit Flashcards</button>`;
   }
+
+  document.getElementById("flashcardContainer").innerHTML = "";
+  document.getElementById("flashProgress").textContent = "";
+
+  document.getElementById("exitAfterSummary").onclick = exitFlashMode;
+}
+
   
   function performFlashBtnAction(){
     if(!toggleInFlashcards){

@@ -8,6 +8,8 @@ const hintsGiven = {};    // hintsGiven[instanceId] = number of characters revea
 
 var sessionActive = true;
 
+var revealList = [];
+
 function getRandomId(prefix='id'){ return prefix + '_' + Math.random().toString(36).slice(2) + '_' + Math.random().toString(36).slice(2,8); }
 
 // helpers
@@ -473,6 +475,10 @@ function revealSingle(inp, setReadonly = true) {
 async function revealSingle(inp, setReadonly = true, askConfirm = true, mustType = true) {
     const key = inp.dataset.key?.trim() || "";
     const inst = inp.dataset.instance;
+    if (key && !revealList.includes(key)) {
+        revealList.push(key);
+    }
+
 
     const confirmReveal = askConfirm?confirm("Are you sure you want to reveal the answer?"):true;
     if (!confirmReveal) return;
@@ -532,13 +538,18 @@ async function revealSingle(inp, setReadonly = true, askConfirm = true, mustType
 
                     setTimeout(() => {
                         overlay.remove();
-                        // Reveal in main input as "wrong" (user gave up)
                         inp.value = key;
                         revealedFlags[inst] = true;
                         inp.classList.add("revealed", "incorrect");
                         inp.classList.remove("correct");
                         if (setReadonly) inp.setAttribute("readonly", "readonly");
                         hintsGiven[inst] = key.length;
+
+                        // ✅ Track revealed word
+                        if (key && !revealList.includes(key)) {
+                            revealList.push(key);
+                        }
+
                         try { setInputWidthToFit(inp); } catch (e) {}
                         checkAnswers();
                         resolve();
@@ -558,14 +569,15 @@ async function revealSingle(inp, setReadonly = true, askConfirm = true, mustType
         revealedFlags[inst] = true;
         inp.classList.add("revealed");
         inp.classList.remove("correct","incorrect");
-        if (setReadonly) {
-        inp.setAttribute('readonly','readonly');
-        }
-        // mark hints as fully given
+        if (setReadonly) inp.setAttribute('readonly','readonly');
         hintsGiven[inst] = (key || '').length;
-        // resize to fit full value
-        try { setInputWidthToFit(inp); } catch (e) { }
-        // update score display (revealed does not count as correct)
+
+        // ✅ Track revealed word
+        if (key && !revealList.includes(key)) {
+            revealList.push(key);
+        }
+
+        try { setInputWidthToFit(inp); } catch (e) {}
         checkAnswers();
     }
 }
@@ -587,6 +599,7 @@ function revealAll() {
 function resetAll() {
     //
     sessionActive = false;
+    revealList = [];
 
     //    
     const inputs = Array.from(document.querySelectorAll('input.greek'));
@@ -682,6 +695,16 @@ function showSummary() {
             Tip: try flashcards for the top 8 words here, or type them 5× each to build recall.
         </p>
     `;
+
+    if (revealList.length > 0) {
+        const reviewList = [...new Set(revealList)];
+        const reviewHTML = `
+            <h4>Words Revealed This Session</h4>
+            <ul>${reviewList.map(w => `<li>${escapeHtml(w)}</li>`).join('')}</ul>
+        `;
+        summaryEl.innerHTML += reviewHTML;
+    }
+
 }
 
 

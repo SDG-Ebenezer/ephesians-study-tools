@@ -513,7 +513,7 @@ async function revealSingle(inp, setReadonly = true, askConfirm = true, mustType
         box.innerHTML = `
             <div style="margin-bottom:10px; font-size:17px; font-weight:500;">Copy the answer exactly to proceed:</div>
             <div style="background:#f3f3f3; padding:8px; border-radius:4px; margin-bottom:12px; user-select:all;">
-            <i>${inp.placeholder?inp.placeholder + " ==> ":"WORD: "}</i>    
+            <i>${inp.placeholder?inp.placeholder + " - ":"WORD: "}</i>    
             <b style="letter-spacing:0.5px;">${key}</b>
             </div>
             <input id="copyConfirmInput" type="text" autocomplete="off" autocorrect="off" spellcheck="false"

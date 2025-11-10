@@ -149,23 +149,47 @@ function disableNextVerseBtn(){
   // --- Reveal all words in current verse (single confirm only)
 function revealCurrentVerse() {
   const container = document.getElementById("flashcardContainer");
-  const inputs = container.querySelectorAll("input.greek");
+  const inputs = Array.from(container.querySelectorAll("input.greek"));
 
-  // Only reveal blanks — no confirm needed
-  let anyBlank = false;
-  inputs.forEach(inp => {
-    if (!inp.value.trim() || inp.classList.contains("incorrect")) {
-      revealSingle(inp, true, false, false);
-      anyBlank = true;
-    }
-  });
+  // All blanks or incorrect words
+  const targets = inputs.filter(
+    inp => !inp.value.trim() || inp.classList.contains("incorrect")
+  );
 
-  if (!anyBlank) {
+  if (targets.length === 0) {
     alert("No words to reveal.");
-  } else {
-    checkIfVerseDone(inputs);
+    return;
   }
+
+  let currentIndex = 0;
+
+  function waitForCompletion(input) {
+    // Called when the user finishes typing/checking this word
+    const observer = new MutationObserver(() => {
+      if (input.classList.contains("correct")) {
+        observer.disconnect();
+        currentIndex++;
+        revealNext();
+      }
+    });
+
+    observer.observe(input, { attributes: true, attributeFilter: ["class"] });
+  }
+
+  function revealNext() {
+    if (currentIndex >= targets.length) {
+      checkIfVerseDone(inputs);
+      return;
+    }
+
+    const currentInput = targets[currentIndex];
+    revealSingle(currentInput, true, false, false);
+    waitForCompletion(currentInput);
+  }
+
+  revealNext();
 }
+
 
 
   function nextVerse() {

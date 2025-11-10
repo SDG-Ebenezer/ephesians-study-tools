@@ -15,7 +15,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function resetFlashBtn(){    
     flashBtn.style.backgroundColor = "#1f830bff"
-    flashBtn.style.color = "#d6d6d6ff"
+    flashBtn.style.color = "#ffffffff"
     flashBtn.innerHTML = "Flashcard Mode" 
   }
   resetFlashBtn()
@@ -105,7 +105,7 @@ function disableNextVerseBtn(){
     inputs.forEach((inp, idx) => {
       inp.addEventListener("keydown", (e) => {
         // ignore modifier keys
-        if (e.ctrlKey || e.altKey || e.metaKey) return;
+        //if (e.ctrlKey || e.altKey || e.metaKey) return;
 
         if ([" ", "Tab", "Enter"].includes(e.key)) {
           e.preventDefault();

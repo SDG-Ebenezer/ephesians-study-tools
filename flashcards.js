@@ -154,14 +154,14 @@ function revealCurrentVerse() {
   // Only reveal blanks — no confirm needed
   let anyBlank = false;
   inputs.forEach(inp => {
-    if (!inp.value.trim()) {
-      revealSingle(inp, true, false);
+    if (!inp.value.trim() || inp.classList.contains("incorrect")) {
+      revealSingle(inp, true, false, false);
       anyBlank = true;
     }
   });
 
   if (!anyBlank) {
-    alert("No blank words to reveal.");
+    alert("No words to reveal.");
   } else {
     checkIfVerseDone(inputs);
   }

@@ -4,6 +4,13 @@ var canMoveOn = false
 var toggleInFlashcards = false
 
 document.addEventListener("DOMContentLoaded", () => {
+  document.querySelectorAll('input.greek').forEach(inp => {
+      inp.addEventListener('contextmenu', function(e){
+          e.preventDefault();
+          showContextMenuForInput(inp, e.clientX, e.clientY);
+      });
+  });
+
   const passage = document.getElementById("passage");
   if (!passage) return;
 
@@ -259,3 +266,4 @@ function revealCurrentVerse() {
   flashUI.querySelector("#nextVerse").addEventListener("click", nextVerse);
   //flashUI.querySelector("#exitFlashcards").addEventListener("click", exitFlashMode);
 });
+

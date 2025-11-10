@@ -116,3 +116,13 @@ footer { margin-top: 20px; color: #475569; font-size: 0.9rem; }
   color: rgb(0, 0, 0);
   border: 1px solid #00000088;
 }
+
+.controls {
+  position: sticky;
+  top: 0;
+  background: white; /* or match your page background */
+  z-index: 1000; /* keeps it above other content */
+  padding: 10px;
+  border-bottom: 1px solid #ccc;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
